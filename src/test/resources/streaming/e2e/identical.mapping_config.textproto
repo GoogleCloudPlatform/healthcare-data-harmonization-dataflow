@@ -1,0 +1,6 @@
+root_mapping: {
+  value_source: {
+    from_source: "."
+  }
+  target_object: "testOutput"
+}

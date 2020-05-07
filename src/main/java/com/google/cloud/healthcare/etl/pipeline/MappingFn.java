@@ -17,6 +17,7 @@ package com.google.cloud.healthcare.etl.pipeline;
 import com.google.cloud.healthcare.etl.util.library.TransformWrapper;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.beam.sdk.values.TupleTag;
 
 /**
  * The core function of the mapping pipeline. Inputs are expected to be a list in order to guarantee
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
  * supported.
  */
 public class MappingFn extends ErrorEnabledDoFn<List<String>, List<String>> {
+  public static final TupleTag<List<String>> MAPPING_TAG = new TupleTag<>("mapping");
 
   private final String mappingConfig;
   private TransformWrapper engine;

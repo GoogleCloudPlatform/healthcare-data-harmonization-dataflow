@@ -59,6 +59,7 @@ Now run the pipeline with the following command:
 java -jar build/libs/converter-0.1.0-all.jar --pubSubSubscription="projects/${PROJECT}/subscriptions/${SUBSCRIPTION}" \
                                              --readErrorPath="gs://${BUCKET}/read_error.txt" \
                                              --writeErrorPath="gs://${BUCKET}/write_error.txt" \
+                                             --mappingErrorPath="gs://${BUCKET}/mapping_error.txt" \
                                              --mappingPath="gs://${BUCKET}/mapping.textproto" \
                                              --fhirStore="projects/${PROJECT}/locations/${LOCATION}/datasets/${DATASET}/fhirStores/${FHIRSTORE}" \
                                              --runner=DataflowRunner \

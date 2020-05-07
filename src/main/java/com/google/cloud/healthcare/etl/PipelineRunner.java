@@ -13,7 +13,12 @@
 // limitations under the License.
 package com.google.cloud.healthcare.etl;
 
+import static com.google.cloud.healthcare.etl.model.ErrorEntry.ERROR_ENTRY_TAG;
+import static com.google.cloud.healthcare.etl.pipeline.MappingFn.MAPPING_TAG;
+
 import com.google.api.services.healthcare.v1beta1.model.HttpBody;
+import com.google.cloud.healthcare.etl.model.ErrorEntry;
+import com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverter;
 import com.google.cloud.healthcare.etl.pipeline.MappingFn;
 import com.google.cloud.healthcare.etl.util.GcsUtils;
 import com.google.cloud.healthcare.etl.util.GcsUtils.GcsPath;
@@ -28,6 +33,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.List;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.TextIO;
@@ -44,11 +50,25 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionTuple;
+import org.apache.beam.sdk.values.TupleTagList;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.joda.time.Duration;
 
-/** The entry point of all pipelines. */
+/**
+ * The entry point of the pipeline. Right now the pipeline has 3 components, HL7v2 IO, mapping
+ * function, and FHIR IO. The code for the IOs are shipped within this project before next Beam
+ * release.
+ *
+ * The errors for each component are handled separately, e.g. you can specify file paths for each
+ * of the stage (read - HL7v2 IO, mapping, write - FHIR IO). Right now the shard is set to 1, if
+ * you are seeing issues with regard to writing to GCS, feel free to bump it up to a reasonable
+ * value.
+ *
+ * Currently message ids are not passed along to the mapping function. An upcoming update will fix
+ * this.
+ */
 public class PipelineRunner {
 
   // TODO(b/155226578): add more sophisticated validations.
@@ -60,10 +80,11 @@ public class PipelineRunner {
     String getPubSubSubscription();
     void setPubSubSubscription(String subSubscription);
 
-    @Description("The path to the mapping configurations. The path will be treated as a GCS path "
-        + "if the path starts with the GCS scheme (\"gs\"), otherwise a local file. Please see: "
-        + "https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/blob/baa4e0c7849413f7b44505a8410ee7f52745427a/mapping_configs/README.md"
-        + " for more details on the mapping configuration structure.")
+    @Description(
+        "The path to the mapping configurations. The path will be treated as a GCS path if the"
+            + " path starts with the GCS scheme (\"gs\"), otherwise a local file. Please see: "
+            + "https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/blob/baa4e0c7849413f7b44505a8410ee7f52745427a/mapping_configs/README.md"
+            + " for more details on the mapping configuration structure.")
     @Required
     String getMappingPath();
     void setMappingPath(String gcsPath);
@@ -74,18 +95,25 @@ public class PipelineRunner {
     String getFhirStore();
     void setFhirStore(String fhirStore);
 
-    @Description("The path to a file that used to record all read errors. The path will be treated "
+    @Description("The path that is used to record all read errors. The path will be treated "
         + "as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a local file.")
     @Required
     String getReadErrorPath();
     void setReadErrorPath(String readErrorPath);
 
-    @Description("The path to a file that used to record all write errors. The path will be "
+    @Description("The path that is used to record all write errors. The path will be "
         + "treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a "
         + "local file.")
     @Required
     String getWriteErrorPath();
     void setWriteErrorPath(String writeErrorPath);
+
+    @Description("The path that is used to record all mapping errors. The path will be "
+        + "treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a "
+        + "local file.")
+    @Required
+    String getMappingErrorPath();
+    void setMappingErrorPath(String mappingErrorPath);
   }
 
   public static void main(String[] args) {
@@ -109,6 +137,17 @@ public class PipelineRunner {
             "WriteReadErrors",
             TextIO.write().to(options.getReadErrorPath()).withWindowedWrites().withNumShards(1));
 
+    PCollection<List<String>> bundles =
+        readResult
+            .getMessages()
+            // TODO(b/155226578): we should pass the message id along for provenance.
+            .apply(MapElements.into(TypeDescriptors.strings()).via(msg -> msg.getSchematizedData()))
+            // TODO(b/155226578): evaluate whether we need to wrap as lists, this was done under the
+            // assumption that we need to window and sort the input messages.
+            .apply(MapElements.into(TypeDescriptors.lists(TypeDescriptors.strings()))
+                .via(msg -> Collections.singletonList(msg)));
+
+    // Read mapping configurations.
     String mapping;
     try {
       mapping = readMapping(options.getMappingPath());
@@ -116,20 +155,25 @@ public class PipelineRunner {
       throw new RuntimeException(e);
     }
     MappingFn mappingFn = new MappingFn(mapping);
-    PCollection<String> bundles =
-        readResult
-            .getMessages()
-            // TODO(b/155226578): we should pass the message id along for provenance.
-            .apply(MapElements.into(TypeDescriptors.strings()).via(msg -> msg.getSchematizedData()))
-            // TODO(b/155226578): do we need such whether we need to wrap as list.
-            .apply(MapElements.into(TypeDescriptors.lists(TypeDescriptors.strings()))
-                .via(msg -> Collections.singletonList(msg)))
-            .apply("MapMessages", ParDo.of(mappingFn))
-            .apply(MapElements.into(TypeDescriptors.strings())
-                // TODO(b/155226578): ideally we should emit errors if the resource list is empty.
-                .via(res -> res.isEmpty() ? "" : res.get(0)));
+    PCollectionTuple mappingResults = bundles
+        .apply("MapMessages",
+            ParDo.of(mappingFn).withOutputTags(MAPPING_TAG, TupleTagList.of(ERROR_ENTRY_TAG)));
 
-    FhirIO.Write.Result writeResult = bundles
+    // Report mapping errors.
+    mappingResults.get(ERROR_ENTRY_TAG)
+        .apply("SerializeMappingErrors", MapElements.into(TypeDescriptors.strings())
+            .via(e -> ErrorEntryConverter.toTableRow(e).toString()))
+        .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))
+        .apply("ReportMappingErrors",
+        TextIO.write().to(options.getMappingErrorPath()).withWindowedWrites().withNumShards(1));
+
+    // Commit FHIR resources.
+    FhirIO.Write.Result writeResult = mappingResults.get(MAPPING_TAG)
+        .apply(
+            MapElements.into(TypeDescriptors.strings())
+                // TODO(b/155226578): this should not happen. Ideally we should emit errors in logs
+                // and metrics if the resource list is empty.
+                .via(res -> res.isEmpty() ? "" : res.get(0)))
         .apply(MapElements.into(TypeDescriptor.of(HttpBody.class))
             .via(bundle -> new HttpBody().setData(bundle)))
         .setCoder(new HttpBodyCoder())

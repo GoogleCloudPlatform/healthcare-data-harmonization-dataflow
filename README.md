@@ -66,6 +66,10 @@ java -jar build/libs/converter-0.1.0-all.jar --pubSubSubscription="projects/${PR
                                              --project=${PROJECT}
 ```
 
+NOTE: By default, streaming pipelines do not have autoscaling enabled, please use
+either `--streamingEngine` (recommended) or a combination of `--autoscalingAlgorithm=THROUGHPUT_BASED` and
+`--maxNumWorkers=N` to manually enable it. See [this page](https://cloud.google.com/dataflow/docs/guides/deploying-a-pipeline#autotuning-features) for more details.
+
 Please take a look at the `PipelineRunner` class to see the concrete meaning of
 each argument.
 

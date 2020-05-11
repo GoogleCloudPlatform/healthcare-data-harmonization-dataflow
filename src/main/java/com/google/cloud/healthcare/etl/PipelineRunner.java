@@ -17,16 +17,11 @@ import static com.google.cloud.healthcare.etl.model.ErrorEntry.ERROR_ENTRY_TAG;
 import static com.google.cloud.healthcare.etl.pipeline.MappingFn.MAPPING_TAG;
 
 import com.google.api.services.healthcare.v1beta1.model.HttpBody;
-import com.google.cloud.healthcare.etl.model.ErrorEntry;
 import com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverter;
 import com.google.cloud.healthcare.etl.pipeline.MappingFn;
 import com.google.cloud.healthcare.etl.util.GcsUtils;
 import com.google.cloud.healthcare.etl.util.GcsUtils.GcsPath;
-import com.google.cloud.healthcare.etl.util.Pair;
 import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.StorageOptions;
 import com.google.common.base.Strings;
 import java.io.IOException;
 import java.nio.charset.Charset;

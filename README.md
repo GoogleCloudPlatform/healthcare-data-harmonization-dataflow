@@ -57,17 +57,17 @@ Now run the pipeline with the following command:
 ```bash
 # Please set the environment variables in the following command.
 java -jar build/libs/converter-0.1.0-all.jar --pubSubSubscription="projects/${PROJECT}/subscriptions/${SUBSCRIPTION}" \
-                                             --readErrorPath="gs://${BUCKET}/read_error.txt" \
-                                             --writeErrorPath="gs://${BUCKET}/write_error.txt" \
-                                             --mappingErrorPath="gs://${BUCKET}/mapping_error.txt" \
-                                             --mappingPath="gs://${BUCKET}/mapping.textproto" \
+                                             --readErrorPath="gs://${ERROR_BUCKET}/read/read_error.txt" \
+                                             --writeErrorPath="gs://${ERROR_BUCKET}/write/write_error.txt" \
+                                             --mappingErrorPath="gs://${ERROR_BUCKET}/mapping/mapping_error.txt" \
+                                             --mappingPath="gs://${MAPPING_BUCKET}/mapping.textproto" \
                                              --fhirStore="projects/${PROJECT}/locations/${LOCATION}/datasets/${DATASET}/fhirStores/${FHIRSTORE}" \
                                              --runner=DataflowRunner \
                                              --project=${PROJECT}
 ```
 
 NOTE: By default, streaming pipelines do not have autoscaling enabled, please use
-either `--streamingEngine` (recommended) or a combination of `--autoscalingAlgorithm=THROUGHPUT_BASED` and
+either `--enableStreamingEngine` (recommended) or a combination of `--autoscalingAlgorithm=THROUGHPUT_BASED` and
 `--maxNumWorkers=N` to manually enable it. See [this page](https://cloud.google.com/dataflow/docs/guides/deploying-a-pipeline#autotuning-features) for more details.
 
 Please take a look at the `PipelineRunner` class to see the concrete meaning of

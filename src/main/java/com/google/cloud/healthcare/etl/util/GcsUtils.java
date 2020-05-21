@@ -16,7 +16,10 @@ package com.google.cloud.healthcare.etl.util;
 
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.Bucket;
+import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Storage.BucketTargetOption;
 import com.google.cloud.storage.StorageOptions;
 import com.google.common.base.Strings;
 import javax.annotation.Nullable;
@@ -60,11 +63,5 @@ public class GcsUtils {
       return null;
     }
     return new GcsPath(parts[0], parts.length == 2 ? parts[1] : "");
-  }
-
-  /** Reads a file from GCS. */
-  public static Blob readFile(GcsPath path) {
-    Storage storage = StorageOptions.getDefaultInstance().getService();
-    return storage.get(BlobId.of(path.getBucket(), path.getFile()));
   }
 }

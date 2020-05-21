@@ -52,14 +52,15 @@ dependencies {
     implementation "org.apache.beam:beam-sdks-java-core:${dataflowVersion}"
     implementation "org.apache.beam:beam-runners-google-cloud-dataflow-java:${dataflowVersion}"
     implementation "org.apache.beam:beam-runners-direct-java:${dataflowVersion}"
-    implementation "org.apache.beam:beam-sdks-java-extensions-join-library:${dataflowVersion}"
+    implementation "org.apache.beam:beam-sdks-java-extensions-sorter:${dataflowVersion}"
     implementation "org.apache.beam:beam-sdks-java-extensions-google-cloud-platform-core:${dataflowVersion}"
     implementation "org.apache.beam:beam-sdks-java-io-google-cloud-platform:${dataflowVersion}"
+    implementation "org.apache.beam:beam-sdks-java-extensions-json-jackson:${dataflowVersion}"
     implementation 'com.google.api-client:google-api-client-gson:1.28.0'
     implementation 'com.google.cloud:google-cloud-storage:1.69.0'
     implementation 'org.slf4j:slf4j-simple:1.7.25'
     implementation 'com.google.code.gson:gson:2.8.5'
-    implementation "com.google.apis:google-api-services-healthcare:v1beta1-rev20200307-1.30.9"
+    implementation "com.google.apis:google-api-services-healthcare:v1beta1-rev20200414-1.30.9"
     implementation 'com.google.guava:guava:r05'
     // TODO(b/154931475): Remove the imported IOs.
     implementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"

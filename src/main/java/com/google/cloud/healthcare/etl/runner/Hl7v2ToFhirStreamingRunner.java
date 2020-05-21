@@ -19,14 +19,10 @@ import static com.google.cloud.healthcare.etl.pipeline.MappingFn.MAPPING_TAG;
 import com.google.api.services.healthcare.v1beta1.model.HttpBody;
 import com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverter;
 import com.google.cloud.healthcare.etl.pipeline.MappingFn;
-import com.google.cloud.healthcare.etl.util.GcsUtils;
-import com.google.cloud.healthcare.etl.util.GcsUtils.GcsPath;
-import com.google.cloud.storage.Blob;
-import com.google.common.base.Strings;
+import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProvider;
+import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProviderFactory;
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
@@ -82,6 +78,7 @@ public class Hl7v2ToFhirStreamingRunner {
             + " for more details on the mapping configuration structure.")
     @Required
     String getMappingPath();
+
     void setMappingPath(String gcsPath);
 
     @Description("The target FHIR Store to write data to, must be of the full format: "
@@ -132,24 +129,23 @@ public class Hl7v2ToFhirStreamingRunner {
             "WriteReadErrors",
             TextIO.write().to(options.getReadErrorPath()).withWindowedWrites().withNumShards(1));
 
-    PCollection<List<String>> bundles =
+    PCollection<String> bundles =
         readResult
             .getMessages()
             // TODO(b/155226578): we should pass the message id along for provenance.
-            .apply(MapElements.into(TypeDescriptors.strings()).via(msg -> msg.getSchematizedData()))
-            // TODO(b/155226578): evaluate whether we need to wrap as lists, this was done under the
-            // assumption that we need to window and sort the input messages.
-            .apply(MapElements.into(TypeDescriptors.lists(TypeDescriptors.strings()))
-                .via(msg -> Collections.singletonList(msg)));
+            .apply(MapElements.into(TypeDescriptors.strings())
+                .via(msg -> msg.getSchematizedData()));
 
     // Read mapping configurations.
-    String mapping;
+    byte[] mapping;
+    MappingConfigProvider provider =
+        MappingConfigProviderFactory.createProvider(options.getMappingPath());
     try {
-      mapping = readMapping(options.getMappingPath());
+      mapping = provider.getMappingConfig(true /* force */);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-    MappingFn mappingFn = new MappingFn(mapping);
+    MappingFn mappingFn = new MappingFn(new String(mapping, Charset.forName("UTF-8")));
     PCollectionTuple mappingResults = bundles
         .apply("MapMessages",
             ParDo.of(mappingFn).withOutputTags(MAPPING_TAG, TupleTagList.of(ERROR_ENTRY_TAG)));
@@ -164,11 +160,6 @@ public class Hl7v2ToFhirStreamingRunner {
 
     // Commit FHIR resources.
     FhirIO.Write.Result writeResult = mappingResults.get(MAPPING_TAG)
-        .apply(
-            MapElements.into(TypeDescriptors.strings())
-                // TODO(b/155226578): this should not happen. Ideally we should emit errors in logs
-                // and metrics if the resource list is empty.
-                .via(res -> res.isEmpty() ? "" : res.get(0)))
         .apply(MapElements.into(TypeDescriptor.of(HttpBody.class))
             .via(bundle -> new HttpBody().setData(bundle)))
         .setCoder(new HttpBodyCoder())
@@ -184,20 +175,5 @@ public class Hl7v2ToFhirStreamingRunner {
             .withWindowedWrites().withNumShards(1));
 
     pipeline.run();
-  }
-
-  private static String readMapping(String path) throws IOException {
-    if (Strings.isNullOrEmpty(path)) {
-      throw new IllegalArgumentException("Mapping configuration path cannot be null or empty.");
-    }
-    GcsPath gcsPath = GcsUtils.parseGcsPath(path);
-    byte[] content;
-    if (gcsPath == null) {
-      content = Files.readAllBytes(Paths.get(path));
-    } else {
-      Blob blob = GcsUtils.readFile(gcsPath);
-      content = blob.getContent();
-    }
-    return new String(content, Charset.forName("UTF-8"));
   }
 }

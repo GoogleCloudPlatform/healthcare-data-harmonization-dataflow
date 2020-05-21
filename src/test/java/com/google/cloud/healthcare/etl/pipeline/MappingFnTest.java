@@ -26,10 +26,6 @@ import org.junit.Test;
 public class MappingFnTest {
 
   private static final String INVALID_CONFIG = "random string";
-  private static final String MAPPING_CONFIG = "n"
-      + "def Test(input) { \n"
-      + "  foo: input.bar \n"
-      + "}";
   private static final String VALID_CONFIG = "structure_mapping_config: {\n"
       + "  mapping_language_string: \"out Output: Test(root); def Test(input) {foo: input.bar;}\"\n"
       + "}\n";
@@ -52,7 +48,7 @@ public class MappingFnTest {
   @Test
   public void process_notInitialized_exception() {
     try {
-      new MappingFn(VALID_CONFIG).process(Collections.singletonList("{}"));
+      new MappingFn(VALID_CONFIG).process("{}");
       fail();
     } catch (RuntimeException e) {
       // no-op.
@@ -63,20 +59,8 @@ public class MappingFnTest {
   public void process_oneElement_result() {
     MappingFn fn = new MappingFn(VALID_CONFIG);
     fn.initialize();
-    List<String> output = fn.process(Collections.singletonList(INPUT));
+    String output = fn.process(INPUT);
     assertEquals("Output should have exactly one element, and match the expected output.",
-        Collections.singletonList(OUTPUT), output);
-  }
-
-  @Test
-  public void process_multiElement_ordered() {
-    MappingFn fn = new MappingFn(VALID_CONFIG);
-    System.out.println(VALID_CONFIG);
-    fn.initialize();
-    List<String> output = fn.process(Lists.newArrayList(INPUT, INPUT2));
-    assertEquals(
-        "Output should have exactly two elements, and match the expected output.",
-        Lists.newArrayList(OUTPUT, OUTPUT2),
-        output);
+        OUTPUT, output);
   }
 }

@@ -15,17 +15,14 @@
 package com.google.cloud.healthcare.etl.pipeline;
 
 import com.google.cloud.healthcare.etl.util.library.TransformWrapper;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.beam.sdk.values.TupleTag;
 
 /**
- * The core function of the mapping pipeline. Inputs are expected to be a list in order to guarantee
- * relative order between individual source. At this moment, only higher level language (whistle) is
- * supported.
+ * The core function of the mapping pipeline. Input is expected to be a parsed message. At this
+ * moment, only higher level language (whistle) is supported.
  */
-public class MappingFn extends ErrorEnabledDoFn<List<String>, List<String>> {
-  public static final TupleTag<List<String>> MAPPING_TAG = new TupleTag<>("mapping");
+public class MappingFn extends ErrorEnabledDoFn<String, String> {
+  public static final TupleTag<String> MAPPING_TAG = new TupleTag<>("mapping");
 
   private final String mappingConfig;
   private TransformWrapper engine;
@@ -43,7 +40,7 @@ public class MappingFn extends ErrorEnabledDoFn<List<String>, List<String>> {
   }
 
   @Override
-  public List<String> process(List<String> strings) {
-    return strings.parallelStream().map(i -> engine.transform(i)).collect(Collectors.toList());
+  public String process(String input) {
+    return engine.transform(input);
   }
 }

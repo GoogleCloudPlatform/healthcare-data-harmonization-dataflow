@@ -16,22 +16,18 @@ package com.google.cloud.healthcare.etl.runner;
 import static com.google.cloud.healthcare.etl.model.ErrorEntry.ERROR_ENTRY_TAG;
 import static com.google.cloud.healthcare.etl.pipeline.MappingFn.MAPPING_TAG;
 
-import com.google.api.services.healthcare.v1beta1.model.HttpBody;
 import com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverter;
 import com.google.cloud.healthcare.etl.pipeline.MappingFn;
 import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProvider;
 import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProviderFactory;
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.util.Collections;
-import java.util.List;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.io.gcp.healthcare.FhirIO;
 import org.apache.beam.sdk.io.gcp.healthcare.HL7v2IO;
 import org.apache.beam.sdk.io.gcp.healthcare.HealthcareIOErrorToTableRow;
-import org.apache.beam.sdk.io.gcp.healthcare.HttpBodyCoder;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -43,7 +39,6 @@ import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.TupleTagList;
-import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.joda.time.Duration;
 
@@ -160,14 +155,11 @@ public class Hl7v2ToFhirStreamingRunner {
 
     // Commit FHIR resources.
     FhirIO.Write.Result writeResult = mappingResults.get(MAPPING_TAG)
-        .apply(MapElements.into(TypeDescriptor.of(HttpBody.class))
-            .via(bundle -> new HttpBody().setData(bundle)))
-        .setCoder(new HttpBodyCoder())
         .apply("WriteFHIRBundles", FhirIO.Write.executeBundles(options.getFhirStore()));
 
-    HealthcareIOErrorToTableRow<HttpBody> bundleErrorConverter =
+    HealthcareIOErrorToTableRow<String> bundleErrorConverter =
         new HealthcareIOErrorToTableRow<>();
-    writeResult.getFailedInsertsWithErr()
+    writeResult.getFailedBodies()
         .apply("ConvertBundleErrors", MapElements.into(TypeDescriptors.strings())
             .via(resp -> bundleErrorConverter.apply(resp).toString()))
         .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))

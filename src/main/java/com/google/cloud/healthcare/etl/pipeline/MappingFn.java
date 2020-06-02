@@ -16,18 +16,29 @@ package com.google.cloud.healthcare.etl.pipeline;
 
 import com.google.cloud.healthcare.etl.util.library.TransformWrapper;
 import java.time.Instant;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.apache.beam.sdk.metrics.Distribution;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.values.TupleTag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The core function of the mapping pipeline. Input is expected to be a parsed message. At this
  * moment, only higher level language (whistle) is supported.
  */
 public class MappingFn extends ErrorEnabledDoFn<String, String> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(MappingFn.class);
   public static final TupleTag<String> MAPPING_TAG = new TupleTag<>("mapping");
-  private final Distribution metrics =
-      Metrics.distribution(MappingFn.class, "TimePerTransform");
+  private final Distribution transformMetrics =
+      Metrics.distribution(MappingFn.class, "Transform");
+
+  // Ensure the initialization only happens once. Ideally this should be handled by the library.
+  private static final AtomicBoolean initializeStarted = new AtomicBoolean();
+  private static final AtomicBoolean initializeFinished = new AtomicBoolean();
+  private static final CountDownLatch initializeGate = new CountDownLatch(1);
 
   private final String mappingConfig;
   private TransformWrapper engine;
@@ -39,15 +50,42 @@ public class MappingFn extends ErrorEnabledDoFn<String, String> {
   }
 
   @Setup
-  public void initialize() {
-    engine = TransformWrapper.getInstance();
-    engine.initializeWhistler(mappingConfig);
+  public void initialize() throws InterruptedException {
+    // Make sure the mapping configuration is only initialized once.
+    if (initializeStarted.compareAndSet(false, true)) {
+      LOGGER.info("Initializing the mapping configurations.");
+      engine = TransformWrapper.getInstance();
+      try {
+        engine.initializeWhistler(mappingConfig);
+        // This has to be done before opening the gate to avoid race conditions.
+        initializeFinished.compareAndSet(false, true);
+      } catch (RuntimeException e) {
+        LOGGER.error("Unable to initialize mapping configurations.", e);
+        // Reset the flag so that initialization can be retried (e.g. users fixed the mapping
+        // configurations), by another thread.
+        initializeStarted.compareAndSet(true, false);
+        throw e; // Fail fast.
+      } finally {
+        // Open the gate in case other threads are waiting. Successive transformations will fail if
+        // initialization failed.
+        initializeGate.countDown();
+      }
+    } else if (!initializeFinished.get()) {
+      // Wait for the gate to open if initialization is not done.
+      LOGGER.info("Waiting for initialization to finish.");
+      initializeGate.await();
+    }
   }
 
   @Override
   public String process(String input) {
+    return runAndReportMetrics(transformMetrics, () -> engine.transform(input));
+  }
+
+  // Runs a lambda and collects the metrics.
+  private static <T> T runAndReportMetrics(Distribution metrics, Supplier<T> supplier) {
     Instant start = Instant.now();
-    String result = engine.transform(input);
+    T result = supplier.get();
     metrics.update(Instant.now().toEpochMilli() - start.toEpochMilli());
     return result;
   }

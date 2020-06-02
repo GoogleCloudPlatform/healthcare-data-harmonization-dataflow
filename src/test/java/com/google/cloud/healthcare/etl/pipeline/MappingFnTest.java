@@ -36,7 +36,7 @@ public class MappingFnTest {
   private static final String OUTPUT2 = "{\"Output\":[{\"foo\":2}]}";
 
   @Test
-  public void process_invalidConfig_exception() {
+  public void process_invalidConfig_exception() throws InterruptedException {
     try {
       new MappingFn(INVALID_CONFIG).initialize();
       fail();
@@ -56,7 +56,7 @@ public class MappingFnTest {
   }
 
   @Test
-  public void process_oneElement_result() {
+  public void process_oneElement_result() throws InterruptedException {
     MappingFn fn = new MappingFn(VALID_CONFIG);
     fn.initialize();
     String output = fn.process(INPUT);

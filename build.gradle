@@ -61,7 +61,7 @@ dependencies {
     implementation 'org.slf4j:slf4j-simple:1.7.25'
     implementation 'com.google.code.gson:gson:2.8.5'
     implementation "com.google.apis:google-api-services-healthcare:v1beta1-rev20200414-1.30.9"
-    implementation 'com.google.guava:guava:r05'
+    implementation 'com.google.guava:guava:29.0-jre'
     // TODO(b/154931475): Remove the imported IOs.
     implementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
     annotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"

@@ -15,6 +15,9 @@
 package com.google.cloud.healthcare.etl.pipeline;
 
 import com.google.cloud.healthcare.etl.util.library.TransformWrapper;
+import java.time.Instant;
+import org.apache.beam.sdk.metrics.Distribution;
+import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.values.TupleTag;
 
 /**
@@ -23,6 +26,8 @@ import org.apache.beam.sdk.values.TupleTag;
  */
 public class MappingFn extends ErrorEnabledDoFn<String, String> {
   public static final TupleTag<String> MAPPING_TAG = new TupleTag<>("mapping");
+  private final Distribution metrics =
+      Metrics.distribution(MappingFn.class, "TimePerTransform");
 
   private final String mappingConfig;
   private TransformWrapper engine;
@@ -41,6 +46,9 @@ public class MappingFn extends ErrorEnabledDoFn<String, String> {
 
   @Override
   public String process(String input) {
-    return engine.transform(input);
+    Instant start = Instant.now();
+    String result = engine.transform(input);
+    metrics.update(Instant.now().toEpochMilli() - start.toEpochMilli());
+    return result;
   }
 }

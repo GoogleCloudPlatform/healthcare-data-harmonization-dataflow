@@ -122,7 +122,7 @@ public class Hl7v2ToFhirStreamingRunner {
         .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))
         .apply(
             "WriteReadErrors",
-            TextIO.write().to(options.getReadErrorPath()).withWindowedWrites().withNumShards(1));
+            TextIO.write().to(options.getReadErrorPath()).withWindowedWrites().withNumShards(5));
 
     PCollection<String> bundles =
         readResult
@@ -151,7 +151,7 @@ public class Hl7v2ToFhirStreamingRunner {
             .via(e -> ErrorEntryConverter.toTableRow(e).toString()))
         .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))
         .apply("ReportMappingErrors",
-        TextIO.write().to(options.getMappingErrorPath()).withWindowedWrites().withNumShards(1));
+        TextIO.write().to(options.getMappingErrorPath()).withWindowedWrites().withNumShards(5));
 
     // Commit FHIR resources.
     FhirIO.Write.Result writeResult = mappingResults.get(MAPPING_TAG)
@@ -164,7 +164,7 @@ public class Hl7v2ToFhirStreamingRunner {
             .via(resp -> bundleErrorConverter.apply(resp).toString()))
         .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))
         .apply("RecordWriteErrors", TextIO.write().to(options.getWriteErrorPath())
-            .withWindowedWrites().withNumShards(1));
+            .withWindowedWrites().withNumShards(5));
 
     pipeline.run();
   }

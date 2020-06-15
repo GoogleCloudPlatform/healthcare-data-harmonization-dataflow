@@ -60,7 +60,7 @@ function abspath() {
 CURR_DIR="$(pwd)"
 REPO_DIR="$(dirname "$0")"
 
-echo "Cloning latest mapping enginemonization code..."
+echo "Cloning latest mapping engine code..."
 git clone "${DH_REPO}" "${WORK_DIR}"
 
 cp -r "${REPO_DIR}/deps/clib" "${WORK_DIR}/mapping_engine/clib"

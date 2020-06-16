@@ -66,9 +66,12 @@ java -jar build/libs/converter-0.1.0-all.jar --pubSubSubscription="projects/${PR
                                              --project=${PROJECT}
 ```
 
-NOTE: By default, streaming pipelines do not have autoscaling enabled, please use
+A few notes:
+
+- By default, streaming pipelines do not have autoscaling enabled, please use
 either `--enableStreamingEngine` (recommended) or a combination of `--autoscalingAlgorithm=THROUGHPUT_BASED` and
 `--maxNumWorkers=N` to manually enable it. See [this page](https://cloud.google.com/dataflow/docs/guides/deploying-a-pipeline#autotuning-features) for more details.
+- For production use, we recommend enabling agent metrics by appending `--experiments=enable_stackdriver_agent_metrics` as an option (you will need to grant `roles/monitoring.metricWriter` to Dataflow controller service account as well), see [this page](https://cloud.google.com/dataflow/docs/guides/using-cloud-monitoring#receive_worker_vm_metrics_from_monitoring_agent) for more details. Additionally, we **highly** recommend limiting the number of threads on each worker, e.g. `--numberOfWorkerHarnessThreads=10`. You can tune the limit based on your workload.
 
 Please take a look at the `PipelineRunner` class to see the concrete meaning of
 each argument.

@@ -29,12 +29,15 @@ import org.apache.beam.sdk.io.gcp.healthcare.FhirIO;
 import org.apache.beam.sdk.io.gcp.healthcare.HL7v2IO;
 import org.apache.beam.sdk.io.gcp.healthcare.HealthcareIOErrorToTableRow;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
+import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.Validation.Required;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionTuple;
@@ -73,7 +76,6 @@ public class Hl7v2ToFhirStreamingRunner {
             + " for more details on the mapping configuration structure.")
     @Required
     String getMappingPath();
-
     void setMappingPath(String gcsPath);
 
     @Description("The target FHIR Store to write data to, must be of the full format: "
@@ -101,7 +103,14 @@ public class Hl7v2ToFhirStreamingRunner {
     @Required
     String getMappingErrorPath();
     void setMappingErrorPath(String mappingErrorPath);
+
+    @Description("The number of shards when writing errors to GCS.")
+    @Default.Integer(10)
+    Integer getErrorLogShardNum();
+    void setErrorLogShardNum(Integer shardNum);
   }
+
+  private static Duration ERROR_LOG_WINDOW_SIZE = Duration.standardSeconds(5);
 
   public static void main(String[] args) {
     Options options = PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class);
@@ -119,10 +128,18 @@ public class Hl7v2ToFhirStreamingRunner {
             "ConvertErrors",
             MapElements.into(TypeDescriptors.strings())
                 .via(input -> errorConverter.apply(input).toString()))
-        .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))
+        .apply(Window.<String>into(FixedWindows.of(ERROR_LOG_WINDOW_SIZE))
+            .triggering(
+                Repeatedly.forever(
+                    AfterProcessingTime.pastFirstElementInPane()
+                        .plusDelayOf(ERROR_LOG_WINDOW_SIZE)))
+            .withAllowedLateness(Duration.ZERO)
+            .discardingFiredPanes())
         .apply(
             "WriteReadErrors",
-            TextIO.write().to(options.getReadErrorPath()).withWindowedWrites().withNumShards(5));
+            TextIO.write().to(options.getReadErrorPath())
+                .withWindowedWrites()
+                .withNumShards(options.getErrorLogShardNum()));
 
     PCollection<String> bundles =
         readResult
@@ -149,9 +166,17 @@ public class Hl7v2ToFhirStreamingRunner {
     mappingResults.get(ERROR_ENTRY_TAG)
         .apply("SerializeMappingErrors", MapElements.into(TypeDescriptors.strings())
             .via(e -> ErrorEntryConverter.toTableRow(e).toString()))
-        .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))
+        .apply(Window.<String>into(FixedWindows.of(ERROR_LOG_WINDOW_SIZE))
+            .triggering(
+                Repeatedly.forever(
+                    AfterProcessingTime.pastFirstElementInPane()
+                        .plusDelayOf(ERROR_LOG_WINDOW_SIZE)))
+            .withAllowedLateness(Duration.ZERO)
+            .discardingFiredPanes())
         .apply("ReportMappingErrors",
-        TextIO.write().to(options.getMappingErrorPath()).withWindowedWrites().withNumShards(5));
+        TextIO.write().to(options.getMappingErrorPath())
+            .withWindowedWrites()
+            .withNumShards(options.getErrorLogShardNum()));
 
     // Commit FHIR resources.
     FhirIO.Write.Result writeResult = mappingResults.get(MAPPING_TAG)
@@ -162,9 +187,16 @@ public class Hl7v2ToFhirStreamingRunner {
     writeResult.getFailedBodies()
         .apply("ConvertBundleErrors", MapElements.into(TypeDescriptors.strings())
             .via(resp -> bundleErrorConverter.apply(resp).toString()))
-        .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))
+        .apply(Window.<String>into(FixedWindows.of(ERROR_LOG_WINDOW_SIZE))
+            .triggering(
+                Repeatedly.forever(
+                    AfterProcessingTime.pastFirstElementInPane()
+                        .plusDelayOf(ERROR_LOG_WINDOW_SIZE)))
+            .withAllowedLateness(Duration.ZERO)
+            .discardingFiredPanes())
         .apply("RecordWriteErrors", TextIO.write().to(options.getWriteErrorPath())
-            .withWindowedWrites().withNumShards(5));
+            .withWindowedWrites()
+            .withNumShards(options.getErrorLogShardNum()));
 
     pipeline.run();
   }

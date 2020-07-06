@@ -13,9 +13,17 @@
 // limitations under the License.
 package org.apache.beam.sdk.io.gcp.healthcare;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.healthcare.v1beta1.model.Message;
+import com.google.api.services.healthcare.v1beta1.model.Operation;
 import com.google.auto.value.AutoValue;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Serializable;
 import java.text.ParseException;
 import java.util.Collection;
 import java.util.Collections;
@@ -23,9 +31,15 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.coders.CoderRegistry;
+import org.apache.beam.sdk.coders.CustomCoder;
 import org.apache.beam.sdk.coders.ListCoder;
+import org.apache.beam.sdk.coders.NullableCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
+import org.apache.beam.sdk.io.FileIO;
+import org.apache.beam.sdk.io.TextIO;
+import org.apache.beam.sdk.io.gcp.healthcare.HttpHealthcareApiClient.HealthcareHttpException;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.range.OffsetRange;
 import org.apache.beam.sdk.metrics.Counter;
@@ -241,6 +255,30 @@ public class HL7v2IO {
   }
 
   /**
+   * Read all the HL7v2 messages from an HL7v2 store, by exporting the messages to a temporary
+   * GCS bucket, then importing to the pipeline.
+   *
+   * @param exportOptions the options of the export request.
+   *
+   * TODO(b/160595476): add public doc to the API.
+   */
+  public static Export exportMessages(Export.Options exportOptions) {
+    return exportMessages(StaticValueProvider.of(exportOptions));
+  }
+
+  /**
+   * Read all the HL7v2 messages from an HL7v2 store, by exporting the messages to a temporary
+   * GCS bucket, then importing to the pipeline.
+   *
+   * @param exportOptions the options of the export request.
+   *
+   * TODO(b/160595476): add public doc to the API.
+   */
+  public static Export exportMessages(ValueProvider<Export.Options> exportOptions) {
+    return new Export(exportOptions);
+  }
+
+  /**
    * Write with Messages.Ingest method. @see <a
    * href=https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/projects.locations.datasets.hl7V2Stores.messages/ingest></a>
    *
@@ -421,6 +459,205 @@ public class HL7v2IO {
             throw e;
           }
         }
+      }
+    }
+  }
+
+  /**
+   * Export dumps all HL7v2 messages in an HL7v2 store. An export operation is first initialized,
+   * the messages are then read from exported files on GCS. Since the export operation may take
+   * a very long time, so it's normal if some runners (e.g. Dataflow) complains that the pipeline
+   * is stuck at this step.
+   *
+   * TODO(b/160591469): add an interval parameter so that we can increase the parallelization and
+   * reduce end-to-end latency.
+   */
+  public static class Export extends PTransform<PBegin, Export.Result> {
+    public static final TupleTag<HL7v2Message> OUT = new TupleTag<HL7v2Message>() {};
+    public static final TupleTag<HealthcareIOError<String>> DEAD_LETTER =
+        new TupleTag<HealthcareIOError<String>>() {};
+
+    /**
+     * Options contains parameters for the export messages call.
+     */
+    @AutoValue
+    @JsonDeserialize(builder = AutoValue_HL7v2IO_Export_Options.Builder.class)
+    public abstract static class Options implements Serializable {
+      private static final long serialVersionUID = -6117521197650980667L;
+
+      public abstract String getHl7v2Store();
+      public abstract String getStartTime();
+      public abstract String getEndTime();
+      public abstract String getExportGcsPrefix();
+
+      public static Builder builder() {
+        return new AutoValue_HL7v2IO_Export_Options.Builder();
+      }
+
+      /**
+       * Builder class for creating an {@code Options} object.
+       */
+      @AutoValue.Builder
+      @JsonPOJOBuilder(withPrefix = "")
+      public abstract static class Builder {
+        public abstract Builder setHl7v2Store(String hl7v2Store);
+        public abstract Builder setStartTime(String startTime);
+        public abstract Builder setEndTime(String endTime);
+        public abstract Builder setExportGcsPrefix(String exportGcsPrefix);
+        public abstract Options build();
+      }
+    }
+
+    /**
+     * Internally used {@link CustomCoder} for {@link Options}.
+     */
+    static class OptionsCoder extends CustomCoder<Options> {
+
+      private static final NullableCoder<String> CODER = NullableCoder.of(StringUtf8Coder.of());
+
+      static OptionsCoder of() {
+        return new OptionsCoder();
+      }
+
+      private OptionsCoder() {
+      }
+
+      @Override
+      public void encode(Options value, OutputStream outStream) throws CoderException, IOException {
+        CODER.encode(value.getHl7v2Store(), outStream);
+        CODER.encode(value.getStartTime(), outStream);
+        CODER.encode(value.getEndTime(), outStream);
+        CODER.encode(value.getExportGcsPrefix(), outStream);
+      }
+
+      @Override
+      public Options decode(InputStream inStream) throws CoderException, IOException {
+        return Options.builder()
+            .setHl7v2Store(CODER.decode(inStream))
+            .setStartTime(CODER.decode(inStream))
+            .setEndTime(CODER.decode(inStream))
+            .setExportGcsPrefix(CODER.decode(inStream))
+            .build();
+      }
+    }
+
+    /**
+     * Represents the result of an export, including both the successful parsed messages, and
+     * invalid ones.
+     */
+    public static class Result implements POutput, PInput {
+      private PCollection<HL7v2Message> messages;
+      private PCollection<HealthcareIOError<String>> failedMessages;
+      PCollectionTuple pct;
+
+      public static Result of(PCollectionTuple pct) throws IllegalArgumentException {
+        if (pct.getAll().keySet()
+            .containsAll((Collection<?>) TupleTagList.of(OUT).and(DEAD_LETTER))) {
+          return new Result(pct);
+        } else {
+          throw new IllegalArgumentException(
+              "The PCollection tuple must have the HL7v2IO.Export.OUT "
+                  + "and HL7v2IO.Export.DEAD_LETTER tuple tags");
+        }
+      }
+
+      private Result(PCollectionTuple pct) {
+        this.pct = pct;
+        this.messages = pct.get(OUT).setCoder(HL7v2MessageCoder.of());
+        this.failedMessages =
+            pct.get(DEAD_LETTER).setCoder(HealthcareIOErrorCoder.of(StringUtf8Coder.of()));
+      }
+
+      public PCollection<HealthcareIOError<String>> getFailedMessages() {
+        return failedMessages;
+      }
+
+      public PCollection<HL7v2Message> getMessages() {
+        return messages;
+      }
+
+      @Override
+      public Pipeline getPipeline() {
+        return this.pct.getPipeline();
+      }
+
+      @Override
+      public Map<TupleTag<?>, PValue> expand() {
+        return ImmutableMap.of(OUT, messages);
+      }
+
+      @Override
+      public void finishSpecifyingOutput(
+          String transformName, PInput input, PTransform<?, ?> transform) {}
+    }
+
+    private final ValueProvider<Options> options;
+
+    public Export(ValueProvider<Options> options) {
+      this.options = options;
+    }
+
+    @Override
+    public Export.Result expand(PBegin input) {
+      return Export.Result.of(input
+          .apply(Create.ofProvider(options, OptionsCoder.of()))
+          .apply("ScheduleExportOperations", ParDo.of(new ExportMessagesFn()))
+          .apply(FileIO.matchAll())
+          .apply(FileIO.readMatches())
+          .apply("ReadMessagesFromFiles", TextIO.readFiles())
+          .apply(ParDo.of(new ParseMessageFn())
+              .withOutputTags(Export.OUT, TupleTagList.of(Export.DEAD_LETTER))));
+    }
+
+    /**
+     * A {@code ParDo} that parses an HL7v2 message in JSON to the internal representation.
+     */
+    public static class ParseMessageFn extends DoFn<String, HL7v2Message> {
+      private static final JsonFactory PARSER = new GsonFactory();
+      private final Counter invalidMessages =
+          Metrics.counter(ParseMessageFn.class, "invalidMessages");
+      private final Counter validMessages =
+          Metrics.counter(ParseMessageFn.class, "validMessages");
+
+      @ProcessElement
+      public void parseMessage(ProcessContext context) {
+        String message = context.element();
+        try {
+          Message parsedMessage = PARSER.fromString(message, Message.class);
+          validMessages.inc();
+          context.output(HL7v2Message.fromModel(parsedMessage));
+        } catch (IOException e) {
+          invalidMessages.inc();
+          context.output(Export.DEAD_LETTER, HealthcareIOError.of(message, e));
+        }
+      }
+    }
+
+    /**
+     * A function that schedules an export operation and monitors the status.
+     */
+    public static class ExportMessagesFn extends DoFn<Options, String> {
+
+      private HealthcareApiClient client;
+
+      @Setup
+      public void initClient() throws IOException {
+        this.client = new HttpHealthcareApiClient();
+      }
+
+      @ProcessElement
+      public void exportMessages(ProcessContext context) throws IOException, InterruptedException,
+          HealthcareHttpException {
+        Options options = context.element();
+        String gcsPrefix = options.getExportGcsPrefix();
+        Operation operation = client.exportHl7v2Messages(
+            options.getHl7v2Store(), options.getStartTime(), options.getEndTime(), gcsPrefix);
+        operation = client.pollOperation(operation, 500L);
+        if (operation.getError() != null) {
+          throw new RuntimeException(String.format("Export operation (%s) failed.",
+              operation.getName()));
+        }
+        context.output(String.format("%s/*", gcsPrefix.replaceAll("/+$", "")));
       }
     }
   }

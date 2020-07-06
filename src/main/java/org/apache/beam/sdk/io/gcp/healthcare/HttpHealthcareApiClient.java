@@ -18,6 +18,7 @@ import com.google.api.client.http.HttpRequest;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.healthcare.v1beta1.CloudHealthcare;
 import com.google.api.services.healthcare.v1beta1.CloudHealthcare.Projects.Locations.Datasets.Hl7V2Stores.Messages;
@@ -59,6 +60,7 @@ import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.ContentType;
+import org.apache.http.entity.SerializableEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
 import org.apache.http.impl.client.HttpClients;
@@ -77,6 +79,7 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
       String.format(
           "apache-beam-io-google-cloud-platform-healthcare/%s",
           ReleaseInfo.getReleaseInfo().getSdkVersion());
+  private static final JsonFactory PARSER = new GsonFactory();
   private static final String FHIRSTORE_HEADER_CONTENT_TYPE = "application/fhir+json";
   private static final String FHIRSTORE_HEADER_ACCEPT = "application/fhir+json; charset=utf-8";
   private static final String FHIRSTORE_HEADER_ACCEPT_CHARSET = "utf-8";
@@ -390,6 +393,68 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
           client.projects().locations().datasets().operations().get(operation.getName()).execute();
     }
     return operation;
+  }
+
+  // TODO(b/160591826): remove the following classes once ExportMessages are launched to beta.
+  private static class ExportMessagesRequest implements Serializable {
+    private static class GcsDestination implements Serializable {
+      private String uriPrefix;
+      private String messageView;
+      private String contentStructure;
+
+      GcsDestination(String uriPrefix, String messageView, String contentStructure) {
+        this.uriPrefix = uriPrefix;
+        this.messageView = messageView;
+        this.contentStructure = contentStructure;
+      }
+    }
+
+    private String startTime;
+    private String endTime;
+    private GcsDestination gcsDestination;
+
+    ExportMessagesRequest(String startTime, String endTime, GcsDestination gcsDestination) {
+      this.startTime = startTime;
+      this.endTime = endTime;
+      this.gcsDestination = gcsDestination;
+    }
+  }
+
+  @Override
+  public Operation exportHl7v2Messages(String hl7v2Store, String start, String end,
+      String gcsPrefix) throws IOException, HealthcareHttpException {
+    if (httpClient == null || client == null) {
+      initClient();
+    }
+
+    credentials.refreshIfExpired();
+    SerializableEntity entity = new SerializableEntity(
+        new ExportMessagesRequest(start, end,
+            new ExportMessagesRequest.GcsDestination(gcsPrefix, "FULL", "MESSAGE_JSON")));
+    URI uri;
+    try {
+      uri =
+          new URIBuilder(client.getRootUrl() + "v1alpha2/" + hl7v2Store + ":export")
+              .setParameter("access_token", credentials.getAccessToken().getTokenValue())
+              .build();
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException(e);
+    }
+
+    HttpUriRequest request =
+        RequestBuilder.post()
+            .setUri(uri)
+            .setEntity(entity)
+            .build();
+
+    HttpResponse response = httpClient.execute(request);
+    HttpEntity responseEntity = response.getEntity();
+    String content = EntityUtils.toString(responseEntity);
+    int statusCode = response.getStatusLine().getStatusCode();
+    if (!(statusCode / 100 == 2)) {
+      throw HealthcareHttpException.of(statusCode, content);
+    }
+    return PARSER.fromString(content, Operation.class);
   }
 
   @Override

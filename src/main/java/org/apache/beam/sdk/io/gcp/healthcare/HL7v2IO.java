@@ -25,7 +25,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.text.ParseException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -311,7 +310,7 @@ public class HL7v2IO {
       public static Result of(PCollectionTuple pct) throws IllegalArgumentException {
         if (pct.getAll()
             .keySet()
-            .containsAll((Collection<?>) TupleTagList.of(OUT).and(DEAD_LETTER))) {
+            .containsAll(TupleTagList.of(OUT).and(DEAD_LETTER).getAll())) {
           return new Result(pct);
         } else {
           throw new IllegalArgumentException(
@@ -486,7 +485,9 @@ public class HL7v2IO {
       private static final long serialVersionUID = -6117521197650980667L;
 
       public abstract String getHl7v2Store();
+      @Nullable
       public abstract String getStartTime();
+      @Nullable
       public abstract String getEndTime();
       public abstract String getExportGcsPrefix();
 
@@ -498,11 +499,11 @@ public class HL7v2IO {
        * Builder class for creating an {@code Options} object.
        */
       @AutoValue.Builder
-      @JsonPOJOBuilder(withPrefix = "")
+      @JsonPOJOBuilder(withPrefix = "set")
       public abstract static class Builder {
         public abstract Builder setHl7v2Store(String hl7v2Store);
-        public abstract Builder setStartTime(String startTime);
-        public abstract Builder setEndTime(String endTime);
+        public abstract Builder setStartTime(@Nullable String startTime);
+        public abstract Builder setEndTime(@Nullable String endTime);
         public abstract Builder setExportGcsPrefix(String exportGcsPrefix);
         public abstract Options build();
       }
@@ -552,7 +553,7 @@ public class HL7v2IO {
 
       public static Result of(PCollectionTuple pct) throws IllegalArgumentException {
         if (pct.getAll().keySet()
-            .containsAll((Collection<?>) TupleTagList.of(OUT).and(DEAD_LETTER))) {
+            .containsAll(TupleTagList.of(OUT).and(DEAD_LETTER).getAll())) {
           return new Result(pct);
         } else {
           throw new IllegalArgumentException(

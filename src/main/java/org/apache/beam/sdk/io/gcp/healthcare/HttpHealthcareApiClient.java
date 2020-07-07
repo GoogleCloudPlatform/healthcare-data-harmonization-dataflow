@@ -52,6 +52,9 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.extensions.gcp.util.RetryHttpRequestInitializer;
 import org.apache.beam.sdk.util.ReleaseInfo;
+import org.apache.beam.vendor.grpc.v1p26p0.com.google.gson.FieldNamingPolicy;
+import org.apache.beam.vendor.grpc.v1p26p0.com.google.gson.Gson;
+import org.apache.beam.vendor.grpc.v1p26p0.com.google.gson.GsonBuilder;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Strings;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -60,7 +63,6 @@ import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.ContentType;
-import org.apache.http.entity.SerializableEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
 import org.apache.http.impl.client.HttpClients;
@@ -84,6 +86,8 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
   private static final String FHIRSTORE_HEADER_ACCEPT = "application/fhir+json; charset=utf-8";
   private static final String FHIRSTORE_HEADER_ACCEPT_CHARSET = "utf-8";
   private static final Logger LOG = LoggerFactory.getLogger(HttpHealthcareApiClient.class);
+  private static final Gson GSON = new GsonBuilder()
+      .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create();
   private transient CloudHealthcare client;
   private transient HttpClient httpClient;
   private transient GoogleCredentials credentials;
@@ -396,8 +400,8 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
   }
 
   // TODO(b/160591826): remove the following classes once ExportMessages are launched to beta.
-  private static class ExportMessagesRequest implements Serializable {
-    private static class GcsDestination implements Serializable {
+  private static class ExportMessagesRequest {
+    private static class GcsDestination {
       private String uriPrefix;
       private String messageView;
       private String contentStructure;
@@ -428,13 +432,14 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
     }
 
     credentials.refreshIfExpired();
-    SerializableEntity entity = new SerializableEntity(
+    String payload = GSON.toJson(
         new ExportMessagesRequest(start, end,
             new ExportMessagesRequest.GcsDestination(gcsPrefix, "FULL", "MESSAGE_JSON")));
+    StringEntity entity = new StringEntity(payload);
     URI uri;
     try {
       uri =
-          new URIBuilder(client.getRootUrl() + "v1alpha2/" + hl7v2Store + ":export")
+          new URIBuilder(client.getRootUrl() + "v1alpha2/" + hl7v2Store + "/messages:export")
               .setParameter("access_token", credentials.getAccessToken().getTokenValue())
               .build();
     } catch (URISyntaxException e) {

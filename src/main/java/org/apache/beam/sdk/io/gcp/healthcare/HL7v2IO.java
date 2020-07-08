@@ -64,6 +64,7 @@ import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.sdk.values.TupleTagList;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.annotations.VisibleForTesting;
+import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Strings;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Throwables;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.FluentIterable;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.ImmutableMap;
@@ -625,9 +626,13 @@ public class HL7v2IO {
         String message = context.element();
         try {
           Message parsedMessage = PARSER.fromString(message, Message.class);
+          String parseError = parsedMessage.getSchematizedData().getError();
+          if (!Strings.isNullOrEmpty(parseError)) {
+            throw new RuntimeException("The input message is invalid.");
+          }
           validMessages.inc();
           context.output(HL7v2Message.fromModel(parsedMessage));
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
           invalidMessages.inc();
           context.output(Export.DEAD_LETTER, HealthcareIOError.of(message, e));
         }

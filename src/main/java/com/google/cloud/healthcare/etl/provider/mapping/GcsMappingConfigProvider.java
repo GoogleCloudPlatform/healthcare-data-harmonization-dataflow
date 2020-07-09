@@ -1,11 +1,10 @@
 package com.google.cloud.healthcare.etl.provider.mapping;
 
-import com.google.cloud.healthcare.etl.util.GcsUtils;
-import com.google.cloud.healthcare.etl.util.GcsUtils.GcsPath;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import java.io.IOException;
+import org.apache.beam.sdk.extensions.gcp.util.gcsfs.GcsPath;
 
 /**
  * This class provides the mapping configurations from files. This can be local files on the disk,
@@ -18,17 +17,13 @@ public class GcsMappingConfigProvider implements MappingConfigProvider {
 
   public GcsMappingConfigProvider(Storage storage, String path) {
     this.gcsClient = storage;
-    GcsPath parsedPath = GcsUtils.parseGcsPath(path);
-    if (parsedPath == null) {
-      throw new IllegalArgumentException(String.format("Invalid GCS path: %s", path));
-    }
-    this.gcsPath = parsedPath;
+    this.gcsPath = GcsPath.fromUri(path);
   }
 
   @Override
   public byte[] getMappingConfig(boolean force) throws IOException {
     if (force || config == null) {
-      Blob blob = gcsClient.get(BlobId.of(gcsPath.getBucket(), gcsPath.getFile()));
+      Blob blob = gcsClient.get(BlobId.of(gcsPath.getBucket(), gcsPath.getObject()));
       config = blob.getContent();
     }
     return config;

@@ -37,7 +37,7 @@ The [Cloud Dataflow Controller Service Account](https://cloud.google.com/dataflo
 The pipeline depends on the [mapping engine](https://github.com/GoogleCloudPlatform/healthcare-data-harmonization) to process the data. Please build the shared object by running the following command:
 
 ```bash
-build_deps.sh --work_dir /tmp/work --output_dir `pwd`/lib
+./build_deps.sh --work_dir /tmp/work --output_dir `pwd`/lib
 ```
 
 A shared object (.so) file gets generated in the `lib` directory after the command finishes.

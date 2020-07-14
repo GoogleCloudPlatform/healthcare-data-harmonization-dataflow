@@ -17,10 +17,14 @@ package com.google.cloud.healthcare.etl.pipeline;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import com.google.common.collect.Lists;
-import java.util.Collections;
-import java.util.List;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 /** Tests for {@link MappingFn}. */
 public class MappingFnTest {
@@ -35,10 +39,14 @@ public class MappingFnTest {
   private static final String OUTPUT = "{\"Output\":[{\"foo\":\"test\"}]}";
   private static final String OUTPUT2 = "{\"Output\":[{\"foo\":2}]}";
 
+  @Rule
+  public TemporaryFolder folder = new TemporaryFolder();
+
   @Test
-  public void process_invalidConfig_exception() throws InterruptedException {
+  public void process_invalidConfig_exception() throws IOException, InterruptedException {
+    Path path = prepareConfigFile(INVALID_CONFIG);
     try {
-      new MappingFn(INVALID_CONFIG).initialize();
+      MappingFn.of(path.toAbsolutePath().toString()).initialize();
       fail();
     } catch (RuntimeException e) {
       // no-op.
@@ -46,9 +54,10 @@ public class MappingFnTest {
   }
 
   @Test
-  public void process_notInitialized_exception() {
+  public void process_notInitialized_exception() throws IOException {
+    Path path = prepareConfigFile(VALID_CONFIG);
     try {
-      new MappingFn(VALID_CONFIG).process("{}");
+      MappingFn.of(path.toAbsolutePath().toString()).process("{}");
       fail();
     } catch (RuntimeException e) {
       // no-op.
@@ -56,11 +65,18 @@ public class MappingFnTest {
   }
 
   @Test
-  public void process_oneElement_result() throws InterruptedException {
-    MappingFn fn = new MappingFn(VALID_CONFIG);
+  public void process_oneElement_result() throws InterruptedException, IOException {
+    Path path = prepareConfigFile(VALID_CONFIG);
+    MappingFn fn = MappingFn.of(path.toAbsolutePath().toString());
     fn.initialize();
     String output = fn.process(INPUT);
     assertEquals("Output should have exactly one element, and match the expected output.",
         OUTPUT, output);
+  }
+
+  private Path prepareConfigFile(String content) throws IOException {
+    Path path = folder.newFile().toPath();
+    Files.write(path, content.getBytes(StandardCharsets.UTF_8), StandardOpenOption.WRITE);
+    return path;
   }
 }

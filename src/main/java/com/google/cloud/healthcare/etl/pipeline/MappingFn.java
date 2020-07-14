@@ -14,13 +14,19 @@
 
 package com.google.cloud.healthcare.etl.pipeline;
 
+import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProvider;
+import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProviderFactory;
 import com.google.cloud.healthcare.etl.util.library.TransformWrapper;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.beam.sdk.metrics.Distribution;
 import org.apache.beam.sdk.metrics.Metrics;
+import org.apache.beam.sdk.options.ValueProvider;
+import org.apache.beam.sdk.options.ValueProvider.StaticValueProvider;
 import org.apache.beam.sdk.values.TupleTag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,13 +46,21 @@ public class MappingFn extends ErrorEnabledDoFn<String, String> {
   private static final AtomicBoolean initializeFinished = new AtomicBoolean();
   private static final CountDownLatch initializeGate = new CountDownLatch(1);
 
-  private final String mappingConfig;
+  private final ValueProvider<String> mappingPath;
   private TransformWrapper engine;
 
   // The config parameter should be the string representation of the whole mapping config, including
   // harmonization and libraries.
-  public MappingFn(String config) {
-    this.mappingConfig = config;
+  private MappingFn(ValueProvider<String> mappingPath) {
+    this.mappingPath = mappingPath;
+  }
+
+  public static MappingFn of(ValueProvider<String> mappingPath) {
+    return new MappingFn(mappingPath);
+  }
+
+  public static MappingFn of(String mappingPath) {
+    return new MappingFn(StaticValueProvider.of(mappingPath));
   }
 
   @Setup
@@ -56,7 +70,7 @@ public class MappingFn extends ErrorEnabledDoFn<String, String> {
       LOGGER.info("Initializing the mapping configurations.");
       engine = TransformWrapper.getInstance();
       try {
-        engine.initializeWhistler(mappingConfig);
+        engine.initializeWhistler(loadMapping(mappingPath.get()));
         // This has to be done before opening the gate to avoid race conditions.
         initializeFinished.compareAndSet(false, true);
       } catch (RuntimeException e) {
@@ -74,6 +88,15 @@ public class MappingFn extends ErrorEnabledDoFn<String, String> {
       // Wait for the gate to open if initialization is not done.
       LOGGER.info("Waiting for initialization to finish.");
       initializeGate.await();
+    }
+  }
+
+  private static String loadMapping(String mappingPath) {
+    MappingConfigProvider provider = MappingConfigProviderFactory.createProvider(mappingPath);
+    try {
+      return new String(provider.getMappingConfig(true /* force */), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new RuntimeException("Unable to load mapping configurations.", e);
     }
   }
 

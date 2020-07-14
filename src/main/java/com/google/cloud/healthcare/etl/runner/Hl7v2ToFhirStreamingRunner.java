@@ -18,10 +18,6 @@ import static com.google.cloud.healthcare.etl.pipeline.MappingFn.MAPPING_TAG;
 
 import com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverter;
 import com.google.cloud.healthcare.etl.pipeline.MappingFn;
-import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProvider;
-import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProviderFactory;
-import java.io.IOException;
-import java.nio.charset.Charset;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.TextIO;
@@ -148,19 +144,10 @@ public class Hl7v2ToFhirStreamingRunner {
             .apply(MapElements.into(TypeDescriptors.strings())
                 .via(msg -> msg.getSchematizedData()));
 
-    // Read mapping configurations.
-    byte[] mapping;
-    MappingConfigProvider provider =
-        MappingConfigProviderFactory.createProvider(options.getMappingPath());
-    try {
-      mapping = provider.getMappingConfig(true /* force */);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-    MappingFn mappingFn = new MappingFn(new String(mapping, Charset.forName("UTF-8")));
     PCollectionTuple mappingResults = bundles
         .apply("MapMessages",
-            ParDo.of(mappingFn).withOutputTags(MAPPING_TAG, TupleTagList.of(ERROR_ENTRY_TAG)));
+            ParDo.of(MappingFn.of(options.getMappingPath()))
+                .withOutputTags(MAPPING_TAG, TupleTagList.of(ERROR_ENTRY_TAG)));
 
     // Report mapping errors.
     mappingResults.get(ERROR_ENTRY_TAG)

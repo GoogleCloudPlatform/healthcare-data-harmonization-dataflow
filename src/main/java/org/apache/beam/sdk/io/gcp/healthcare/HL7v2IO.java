@@ -36,8 +36,14 @@ import org.apache.beam.sdk.coders.CustomCoder;
 import org.apache.beam.sdk.coders.ListCoder;
 import org.apache.beam.sdk.coders.NullableCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
+import org.apache.beam.sdk.coders.VoidCoder;
 import org.apache.beam.sdk.io.FileIO;
+import org.apache.beam.sdk.io.FileSystems;
 import org.apache.beam.sdk.io.TextIO;
+import org.apache.beam.sdk.io.fs.EmptyMatchTreatment;
+import org.apache.beam.sdk.io.fs.MatchResult;
+import org.apache.beam.sdk.io.fs.MoveOptions.StandardMoveOptions;
+import org.apache.beam.sdk.io.fs.ResourceId;
 import org.apache.beam.sdk.io.gcp.healthcare.HttpHealthcareApiClient.HealthcareHttpException;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.range.OffsetRange;
@@ -50,9 +56,11 @@ import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.DoFn.BoundedPerElement;
 import org.apache.beam.sdk.transforms.FlatMapElements;
+import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Reshuffle;
+import org.apache.beam.sdk.transforms.Wait;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
@@ -565,9 +573,8 @@ public class HL7v2IO {
 
       private Result(PCollectionTuple pct) {
         this.pct = pct;
-        this.messages = pct.get(OUT).setCoder(HL7v2MessageCoder.of());
-        this.failedMessages =
-            pct.get(DEAD_LETTER).setCoder(HealthcareIOErrorCoder.of(StringUtf8Coder.of()));
+        this.messages = pct.get(OUT);
+        this.failedMessages = pct.get(DEAD_LETTER);
       }
 
       public PCollection<HealthcareIOError<String>> getFailedMessages() {
@@ -601,14 +608,48 @@ public class HL7v2IO {
 
     @Override
     public Export.Result expand(PBegin input) {
-      return Export.Result.of(input
+      PCollectionTuple parsedMessages = input
           .apply(Create.ofProvider(options, OptionsCoder.of()))
           .apply("ScheduleExportOperations", ParDo.of(new ExportMessagesFn()))
           .apply(FileIO.matchAll())
           .apply(FileIO.readMatches())
           .apply("ReadMessagesFromFiles", TextIO.readFiles())
           .apply(ParDo.of(new ParseMessageFn())
-              .withOutputTags(Export.OUT, TupleTagList.of(Export.DEAD_LETTER))));
+              .withOutputTags(Export.OUT, TupleTagList.of(Export.DEAD_LETTER)));
+
+      PCollection<HL7v2Message> messages = parsedMessages.get(Export.OUT)
+          .setCoder(HL7v2MessageCoder.of());
+      PCollection<HealthcareIOError<String>> errors = parsedMessages.get(Export.DEAD_LETTER)
+          .setCoder(HealthcareIOErrorCoder.of(StringUtf8Coder.of()));
+      input
+          .getPipeline()
+          .apply(Create.ofProvider(options, OptionsCoder.of()))
+          .apply(MapElements.into(TypeDescriptors.strings())
+              .via((Options opts) ->
+                  String.format("%s/*", opts.getExportGcsPrefix().replaceAll("/+$", ""))))
+          .apply(Wait.on(messages, errors))
+          .apply(FileIO.matchAll().withEmptyMatchTreatment(EmptyMatchTreatment.ALLOW))
+          .apply(
+              "RemoveTempFiles",
+              ParDo.of(
+                  new DoFn<MatchResult.Metadata, Void>() {
+                    @ProcessElement
+                    public void process(ProcessContext ctx) {
+                      ResourceId resourceId = ctx.element().resourceId();
+                      try {
+                        FileSystems.delete(
+                            Collections.singleton(resourceId),
+                            StandardMoveOptions.IGNORE_MISSING_FILES);
+                      } catch (IOException e) {
+                        throw new RuntimeException(
+                            String.format(
+                                "Unable to delete the temporary file: %s.", resourceId.toString()),
+                            e);
+                      }
+                    }
+                  }))
+          .setCoder(VoidCoder.of());
+      return Export.Result.of(parsedMessages);
     }
 
     /**

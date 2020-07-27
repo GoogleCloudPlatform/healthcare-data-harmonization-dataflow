@@ -35,7 +35,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/util/jsonutil" /* copybara-comment: jsonutil */
 	"github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_language/transpiler" /* copybara-comment: transpiler */
-	"github.com/golang/protobuf/proto" /* copybara-comment: proto */
+	"google.golang.org/protobuf/encoding/prototext" /* copybara-comment: prototext */
 
 	dhpb "github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/proto" /* copybara-comment: data_harmonization_go_proto */
 	hpb "github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/proto" /* copybara-comment: harmonization_go_proto */
@@ -75,7 +75,7 @@ func Java_com_google_cloud_healthcare_etl_util_library_TransformWrapper_transfor
 func Java_com_google_cloud_healthcare_etl_util_library_TransformWrapper_initializeWhistler(env *C.JNIEnv, cls C.jclass, cConfig C.jstring) {
 	config := jStringGoString(env, cConfig)
 	dhc := &dhpb.DataHarmonizationConfig{}
-	if err := proto.UnmarshalText(config, dhc); err != nil {
+	if err := prototext.Unmarshal([]byte(config), dhc); err != nil {
 		throwRuntimeException(env, fmt.Sprintf("unable to unmarshal data harmonization config: %v", err))
 		return
 	}

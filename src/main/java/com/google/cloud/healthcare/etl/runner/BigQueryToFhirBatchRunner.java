@@ -16,11 +16,10 @@ package com.google.cloud.healthcare.etl.runner;
 import static com.google.cloud.healthcare.etl.model.ErrorEntry.ERROR_ENTRY_TAG;
 import static com.google.cloud.healthcare.etl.pipeline.MappingFn.MAPPING_TAG;
 
-import com.google.api.client.json.GenericJson;
-import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.healthcare.etl.model.QueryOptions;
 import com.google.cloud.healthcare.etl.pipeline.MappingFn;
+import com.google.cloud.healthcare.etl.pipeline.TableRowToJsonFn;
 import com.google.common.base.Strings;
 import java.util.Map;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
@@ -32,6 +31,7 @@ import org.apache.beam.sdk.io.gcp.healthcare.HealthcareIOErrorToTableRow;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.Validation.Required;
+import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PCollection;
@@ -65,43 +65,28 @@ public class BigQueryToFhirBatchRunner {
     @Description(
         "The target FHIR Store to write data to, must be of the full format: "
             + "projects/project_id/locations/location/datasets/dataset_id/fhirStores/fhir_store_id")
-    String getFhirStore();
+    @Required
+    ValueProvider<String> getFhirStore();
 
-    void setFhirStore(String fhirStore);
-
-    @Description(
-        "The GCS path to write resources to. You can only specify one of this parameter "
-            + "and --fhirStore")
-    String getTargetGcsPath();
-
-    void setTargetGcsPath(String targetGcsPath);
+    void setFhirStore(ValueProvider<String> fhirStore);
 
     @Description(
         "The path that is used to record all mapping errors. The path will be "
             + "treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a "
             + "local file.")
     @Required
-    String getMappingErrorPath();
+    ValueProvider<String> getMappingErrorPath();
 
-    void setMappingErrorPath(String mappingErrorPath);
-
-    @Description(
-        "The path that is used to record all reading errors. The path will be "
-            + "treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a "
-            + "local file.")
-    @Required
-    String getReadErrorPath();
-
-    void setReadErrorPath(String readErrorPath);
+    void setMappingErrorPath(ValueProvider<String> mappingErrorPath);
 
     @Description(
         "The path that is used to record all FHIR executeBundle errors. The path will be "
             + "treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a "
             + "local file.")
     @Required
-    String getWriteErrorPath();
+    ValueProvider<String> getWriteErrorPath();
 
-    void setWriteErrorPath(String writeErrorPath);
+    void setWriteErrorPath(ValueProvider<String> writeErrorPath);
   }
 
   public static void main(String[] args) {
@@ -118,17 +103,14 @@ public class BigQueryToFhirBatchRunner {
       PCollection<TableRow> bqRows =
           pipeline.apply(
               getStepName(tableName, "BigQueryRead"),
-              BigQueryIO.readTableRows().fromQuery(query).usingStandardSql());
+              BigQueryIO.readTableRows()
+                  .fromQuery(query)
+                  .usingStandardSql()
+                  .withTemplateCompatibility());
       PCollectionTuple mappingResults =
           bqRows
               .apply(
-                  MapElements.into(TypeDescriptors.strings())
-                      .via(
-                          (TableRow row) -> {
-                            GenericJson json = new GenericJson().set(tableName, row);
-                            json.setFactory(GsonFactory.getDefaultInstance());
-                            return json.toString();
-                          }))
+                  MapElements.into(TypeDescriptors.strings()).via(new TableRowToJsonFn(tableName)))
               .apply(
                   getStepName(tableName, "MapMessages"),
                   ParDo.of(mappingFn)
@@ -138,30 +120,25 @@ public class BigQueryToFhirBatchRunner {
           mappingResults.get(ERROR_ENTRY_TAG),
           options.getMappingErrorPath(),
           getStepName(tableName, "WriteMappingErrors"));
+      // Commit FHIR resources.
+      FhirIO.Write.Result writeResult =
+          mappingResults
+              .get(MAPPING_TAG)
+              .apply(
+                  getStepName(tableName, "WriteFHIRBundles"),
+                  FhirIO.Write.executeBundles(options.getFhirStore()));
 
-      if (!Strings.isNullOrEmpty(options.getTargetGcsPath())) {
-        mappingResults.get(MAPPING_TAG).apply(TextIO.write().to(options.getTargetGcsPath()));
-      } else {
-        // Commit FHIR resources.
-        FhirIO.Write.Result writeResult =
-            mappingResults
-                .get(MAPPING_TAG)
-                .apply(
-                    getStepName(tableName, "WriteFHIRBundles"),
-                    FhirIO.Write.executeBundles(options.getFhirStore()));
-
-        HealthcareIOErrorToTableRow<String> bundleErrorConverter =
-            new HealthcareIOErrorToTableRow<>();
-        writeResult
-            .getFailedBodies()
-            .apply(
-                getStepName(tableName, "ConvertBundleErrors"),
-                MapElements.into(TypeDescriptors.strings())
-                    .via(resp -> bundleErrorConverter.apply(resp).toString()))
-            .apply(
-                getStepName(tableName, "RecordWriteErrors"),
-                TextIO.write().to(options.getWriteErrorPath()));
-      }
+      HealthcareIOErrorToTableRow<String> bundleErrorConverter =
+          new HealthcareIOErrorToTableRow<>();
+      writeResult
+          .getFailedBodies()
+          .apply(
+              getStepName(tableName, "ConvertBundleErrors"),
+              MapElements.into(TypeDescriptors.strings())
+                  .via(resp -> bundleErrorConverter.apply(resp).toString()))
+          .apply(
+              getStepName(tableName, "RecordWriteErrors"),
+              TextIO.write().to(options.getWriteErrorPath()));
     }
     pipeline.run();
   }
@@ -171,17 +148,6 @@ public class BigQueryToFhirBatchRunner {
   }
 
   private static void validateOptions(Options options) {
-    if (Strings.isNullOrEmpty(options.getFhirStore())
-        && Strings.isNullOrEmpty(options.getTargetGcsPath())) {
-      throw new IllegalArgumentException("A FHIR store or GCS path must be specified as target.");
-    }
-
-    if (!Strings.isNullOrEmpty(options.getFhirStore())
-        && !Strings.isNullOrEmpty(options.getTargetGcsPath())) {
-      throw new IllegalArgumentException(
-          "Cannot specify a FHIR store and a GCS path as target at the same time");
-    }
-
     QueryOptions queryOptions = options.getSourceQueries();
     if (queryOptions.queries() == null || queryOptions.queries().size() == 0) {
       throw new IllegalArgumentException("Must specify one or more queries as input.");

@@ -19,7 +19,7 @@ import static com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverte
 import static com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverter.STACKTRACE_FIELD;
 import static com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverter.STEP_FIELD;
 import static com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverter.TIMESTAMP_FIELD;
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.healthcare.etl.model.ErrorEntry;
@@ -42,17 +42,18 @@ public class ErrorEntryConverterTest {
   public void toTableRow_expectedResult() {
     Instant now = Instant.now();
     ZoneId zone = ZoneId.of(TORONTO_TIME_ZONE);
-    ErrorEntry entry = ErrorEntry.of(
-        new IllegalArgumentException(MESSAGE), Clock.fixed(now, zone)).setStep(STEP);
-    assertEquals(
-        "Mapped fields",
-        new TableRow()
-            .set(STACKTRACE_FIELD, "")
-            .set(ERROR_MESSAGE_FIELD, MESSAGE)
-            .set(TIMESTAMP_FIELD,
-                ZonedDateTime.ofInstant(now, zone).format(DateTimeFormatter.ISO_DATE_TIME))
-            .set(STEP_FIELD, STEP)
-            .set(SOURCE_FIELD, Lists.newArrayList()),
-        ErrorEntryConverter.toTableRow(entry).set(STACKTRACE_FIELD, ""));
+    ErrorEntry entry =
+        ErrorEntry.of(new IllegalArgumentException(MESSAGE), Clock.fixed(now, zone)).setStep(STEP);
+    assertWithMessage("Mapped fields do not match.")
+        .that(ErrorEntryConverter.toTableRow(entry).set(STACKTRACE_FIELD, ""))
+        .isEqualTo(
+            new TableRow()
+                .set(STACKTRACE_FIELD, "")
+                .set(ERROR_MESSAGE_FIELD, MESSAGE)
+                .set(
+                    TIMESTAMP_FIELD,
+                    ZonedDateTime.ofInstant(now, zone).format(DateTimeFormatter.ISO_DATE_TIME))
+                .set(STEP_FIELD, STEP)
+                .set(SOURCE_FIELD, Lists.newArrayList()));
   }
 }

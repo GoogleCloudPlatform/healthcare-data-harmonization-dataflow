@@ -14,7 +14,7 @@
 
 package com.google.cloud.healthcare.etl.pipeline;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
@@ -30,17 +30,18 @@ import org.junit.rules.TemporaryFolder;
 public class MappingFnTest {
 
   private static final String INVALID_CONFIG = "random string";
-  private static final String VALID_CONFIG = "structure_mapping_config: {\n"
-      + "  mapping_language_string: \"out Output: Test(root); def Test(input) {foo: input.bar;}\"\n"
-      + "}\n";
+  private static final String VALID_CONFIG =
+      "structure_mapping_config: {\n"
+          + "  mapping_language_string: \"out Output: Test(root); def Test(input) {foo:"
+          + " input.bar;}\"\n"
+          + "}\n";
 
   private static final String INPUT = "{\"bar\":\"test\"}";
   private static final String INPUT2 = "{\"bar\":2}";
   private static final String OUTPUT = "{\"Output\":[{\"foo\":\"test\"}]}";
   private static final String OUTPUT2 = "{\"Output\":[{\"foo\":2}]}";
 
-  @Rule
-  public TemporaryFolder folder = new TemporaryFolder();
+  @Rule public TemporaryFolder folder = new TemporaryFolder();
 
   @Test
   public void process_invalidConfig_exception() throws IOException, InterruptedException {
@@ -69,9 +70,9 @@ public class MappingFnTest {
     Path path = prepareConfigFile(VALID_CONFIG);
     MappingFn fn = MappingFn.of(path.toAbsolutePath().toString());
     fn.initialize();
-    String output = fn.process(INPUT);
-    assertEquals("Output should have exactly one element, and match the expected output.",
-        OUTPUT, output);
+    assertWithMessage("Output should have exactly one element, and match the expected output.")
+        .that(fn.process(INPUT))
+        .isEqualTo(OUTPUT);
   }
 
   private Path prepareConfigFile(String content) throws IOException {

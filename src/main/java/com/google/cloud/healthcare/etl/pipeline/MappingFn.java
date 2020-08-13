@@ -14,12 +14,17 @@
 
 package com.google.cloud.healthcare.etl.pipeline;
 
+import static com.google.cloud.healthcare.etl.model.ErrorEntry.ERROR_ENTRY_TAG;
+
+import com.google.cloud.healthcare.etl.model.ErrorEntry;
+import com.google.cloud.healthcare.etl.model.mapping.Mappable;
 import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProvider;
 import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProviderFactory;
 import com.google.cloud.healthcare.etl.util.library.TransformWrapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -27,6 +32,7 @@ import org.apache.beam.sdk.metrics.Distribution;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.options.ValueProvider.StaticValueProvider;
+import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.TupleTag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * The core function of the mapping pipeline. Input is expected to be a parsed message. At this
  * moment, only higher level language (whistle) is supported.
  */
-public class MappingFn extends ErrorEnabledDoFn<String, String> {
+public class MappingFn<M extends Mappable> extends DoFn<M, String> {
   private static final Logger LOGGER = LoggerFactory.getLogger(MappingFn.class);
   public static final TupleTag<String> MAPPING_TAG = new TupleTag<>("mapping");
   private final Distribution transformMetrics =
@@ -100,9 +106,18 @@ public class MappingFn extends ErrorEnabledDoFn<String, String> {
     }
   }
 
-  @Override
-  public String process(String input) {
-    return runAndReportMetrics(transformMetrics, () -> engine.transform(input));
+  @ProcessElement
+  public void process(ProcessContext ctx) {
+    M input = ctx.element();
+    try {
+      ctx.output(runAndReportMetrics(transformMetrics, () -> engine.transform(input.getData())));
+    } catch (RuntimeException e) {
+      ErrorEntry entry = ErrorEntry.of(e).setStep(getClass().getSimpleName());
+      if (input.getId() != null) {
+        entry.setSources(Collections.singletonList(input.getId()));
+      }
+      ctx.output(ERROR_ENTRY_TAG, entry);
+    }
   }
 
   // Runs a lambda and collects the metrics.

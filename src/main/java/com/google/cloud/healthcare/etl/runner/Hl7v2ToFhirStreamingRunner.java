@@ -17,6 +17,8 @@ import static com.google.cloud.healthcare.etl.model.ErrorEntry.ERROR_ENTRY_TAG;
 import static com.google.cloud.healthcare.etl.pipeline.MappingFn.MAPPING_TAG;
 
 import com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverter;
+import com.google.cloud.healthcare.etl.model.mapping.HclsApiHl7v2MappableMessage;
+import com.google.cloud.healthcare.etl.model.mapping.HclsApiHl7v2MappableMessageCoder;
 import com.google.cloud.healthcare.etl.pipeline.MappingFn;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
@@ -38,6 +40,7 @@ import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionTuple;
 import org.apache.beam.sdk.values.TupleTagList;
+import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.joda.time.Duration;
 
@@ -137,16 +140,17 @@ public class Hl7v2ToFhirStreamingRunner {
                 .withWindowedWrites()
                 .withNumShards(options.getErrorLogShardNum()));
 
-    PCollection<String> bundles =
+    PCollection<HclsApiHl7v2MappableMessage> bundles =
         readResult
             .getMessages()
-            // TODO(b/155226578): we should pass the message id along for provenance.
-            .apply(MapElements.into(TypeDescriptors.strings())
-                .via(msg -> msg.getSchematizedData()));
+            .apply(MapElements.into(TypeDescriptor.of(HclsApiHl7v2MappableMessage.class))
+                .via(HclsApiHl7v2MappableMessage::from))
+            .setCoder(HclsApiHl7v2MappableMessageCoder.of());
 
+    MappingFn<HclsApiHl7v2MappableMessage> mappingFn = MappingFn.of(options.getMappingPath());
     PCollectionTuple mappingResults = bundles
         .apply("MapMessages",
-            ParDo.of(MappingFn.of(options.getMappingPath()))
+            ParDo.of(mappingFn)
                 .withOutputTags(MAPPING_TAG, TupleTagList.of(ERROR_ENTRY_TAG)));
 
     // Report mapping errors.

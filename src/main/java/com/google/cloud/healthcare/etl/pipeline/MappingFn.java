@@ -34,6 +34,7 @@ import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.options.ValueProvider.StaticValueProvider;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.TupleTag;
+import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,20 +54,31 @@ public class MappingFn<M extends Mappable> extends DoFn<M, String> {
   private static final CountDownLatch initializeGate = new CountDownLatch(1);
 
   private final ValueProvider<String> mappingPath;
+  private final ValueProvider<String> mappings;
+
   private TransformWrapper engine;
 
   // The config parameter should be the string representation of the whole mapping config, including
   // harmonization and libraries.
-  private MappingFn(ValueProvider<String> mappingPath) {
+  private MappingFn(ValueProvider<String> mappingPath, ValueProvider<String> mappings) {
     this.mappingPath = mappingPath;
+    this.mappings = mappings;
   }
 
   public static MappingFn of(ValueProvider<String> mappingPath) {
-    return new MappingFn(mappingPath);
+    return new MappingFn(mappingPath, StaticValueProvider.of(""));
   }
 
   public static MappingFn of(String mappingPath) {
-    return new MappingFn(StaticValueProvider.of(mappingPath));
+    return of(StaticValueProvider.of(mappingPath));
+  }
+
+  public static MappingFn of(ValueProvider<String> mappingPath, ValueProvider<String> mappings) {
+    return new MappingFn(mappingPath, mappings);
+  }
+
+  public static MappingFn of(String mappings, String mappingPath) {
+    return of(StaticValueProvider.of(mappingPath), StaticValueProvider.of(mappings));
   }
 
   @Setup
@@ -76,7 +88,12 @@ public class MappingFn<M extends Mappable> extends DoFn<M, String> {
       LOGGER.info("Initializing the mapping configurations.");
       engine = TransformWrapper.getInstance();
       try {
-        engine.initializeWhistler(loadMapping(mappingPath.get()));
+        // Mapping configurations are loaded from the `mappingPath` only if `mappings` is absent.
+        String mappingsToUse = mappings.get();
+        if (Strings.isNullOrEmpty(mappingsToUse)) {
+          mappingsToUse = loadMapping(mappingPath.get());
+        }
+        engine.initializeWhistler(mappingsToUse);
         // This has to be done before opening the gate to avoid race conditions.
         initializeFinished.compareAndSet(false, true);
       } catch (RuntimeException e) {

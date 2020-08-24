@@ -13,28 +13,20 @@
 // limitations under the License.
 package org.apache.beam.sdk.io.gcp.healthcare;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.healthcare.v1beta1.model.Message;
 import com.google.api.services.healthcare.v1beta1.model.Operation;
 import com.google.auto.value.AutoValue;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.Serializable;
 import java.text.ParseException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.coders.CoderRegistry;
-import org.apache.beam.sdk.coders.CustomCoder;
 import org.apache.beam.sdk.coders.ListCoder;
-import org.apache.beam.sdk.coders.NullableCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.coders.VoidCoder;
 import org.apache.beam.sdk.io.FileIO;
@@ -266,24 +258,45 @@ public class HL7v2IO {
    * Read all the HL7v2 messages from an HL7v2 store, by exporting the messages to a temporary
    * GCS bucket, then importing to the pipeline.
    *
-   * @param exportOptions the options of the export request.
+   * TODO(b/160595476): add public doc to the API.
+   */
+  public static Export exportMessages(String hl7v2Store, String exportPath) {
+    return exportMessages(StaticValueProvider.of(hl7v2Store), StaticValueProvider.of(exportPath));
+  }
+
+  /**
+   * Read the HL7v2 messages whose `send_time` in a time range from an HL7v2 store, by exporting
+   * the messages to a temporary GCS bucket, then importing to the pipeline.
    *
    * TODO(b/160595476): add public doc to the API.
    */
-  public static Export exportMessages(Export.Options exportOptions) {
-    return exportMessages(StaticValueProvider.of(exportOptions));
+  public static Export exportMessages(String hl7v2Store, String exportPath,
+      String startTime, String endTime) {
+    return exportMessages(StaticValueProvider.of(hl7v2Store), StaticValueProvider.of(exportPath),
+        StaticValueProvider.of(startTime), StaticValueProvider.of(endTime));
   }
 
   /**
    * Read all the HL7v2 messages from an HL7v2 store, by exporting the messages to a temporary
    * GCS bucket, then importing to the pipeline.
    *
-   * @param exportOptions the options of the export request.
+   * TODO(b/160595476): add public doc to the API.
+   */
+  public static Export exportMessages(ValueProvider<String> hl7v2Store,
+      ValueProvider<String> exportPath) {
+    return new Export(hl7v2Store, exportPath);
+  }
+
+  /**
+   * Read the HL7v2 messages whose `send_time` in a time range from an HL7v2 store, by exporting
+   * the messages to a temporary GCS bucket, then importing to the pipeline.
    *
    * TODO(b/160595476): add public doc to the API.
    */
-  public static Export exportMessages(ValueProvider<Export.Options> exportOptions) {
-    return new Export(exportOptions);
+  public static Export exportMessages(ValueProvider<String> hl7v2Store,
+      ValueProvider<String> exportPath, ValueProvider<String> startTime,
+      ValueProvider<String> endTime) {
+    return new Export(hl7v2Store, exportPath, startTime, endTime);
   }
 
   /**
@@ -486,72 +499,6 @@ public class HL7v2IO {
         new TupleTag<HealthcareIOError<String>>() {};
 
     /**
-     * Options contains parameters for the export messages call.
-     */
-    @AutoValue
-    @JsonDeserialize(builder = AutoValue_HL7v2IO_Export_Options.Builder.class)
-    public abstract static class Options implements Serializable {
-      private static final long serialVersionUID = -6117521197650980667L;
-
-      public abstract String getHl7v2Store();
-      @Nullable
-      public abstract String getStartTime();
-      @Nullable
-      public abstract String getEndTime();
-      public abstract String getExportGcsPrefix();
-
-      public static Builder builder() {
-        return new AutoValue_HL7v2IO_Export_Options.Builder();
-      }
-
-      /**
-       * Builder class for creating an {@code Options} object.
-       */
-      @AutoValue.Builder
-      @JsonPOJOBuilder(withPrefix = "set")
-      public abstract static class Builder {
-        public abstract Builder setHl7v2Store(String hl7v2Store);
-        public abstract Builder setStartTime(@Nullable String startTime);
-        public abstract Builder setEndTime(@Nullable String endTime);
-        public abstract Builder setExportGcsPrefix(String exportGcsPrefix);
-        public abstract Options build();
-      }
-    }
-
-    /**
-     * Internally used {@link CustomCoder} for {@link Options}.
-     */
-    static class OptionsCoder extends CustomCoder<Options> {
-
-      private static final NullableCoder<String> CODER = NullableCoder.of(StringUtf8Coder.of());
-
-      static OptionsCoder of() {
-        return new OptionsCoder();
-      }
-
-      private OptionsCoder() {
-      }
-
-      @Override
-      public void encode(Options value, OutputStream outStream) throws CoderException, IOException {
-        CODER.encode(value.getHl7v2Store(), outStream);
-        CODER.encode(value.getStartTime(), outStream);
-        CODER.encode(value.getEndTime(), outStream);
-        CODER.encode(value.getExportGcsPrefix(), outStream);
-      }
-
-      @Override
-      public Options decode(InputStream inStream) throws CoderException, IOException {
-        return Options.builder()
-            .setHl7v2Store(CODER.decode(inStream))
-            .setStartTime(CODER.decode(inStream))
-            .setEndTime(CODER.decode(inStream))
-            .setExportGcsPrefix(CODER.decode(inStream))
-            .build();
-      }
-    }
-
-    /**
      * Represents the result of an export, including both the successful parsed messages, and
      * invalid ones.
      */
@@ -600,17 +547,29 @@ public class HL7v2IO {
           String transformName, PInput input, PTransform<?, ?> transform) {}
     }
 
-    private final ValueProvider<Options> options;
+    private final ValueProvider<String> hl7v2Store;
+    private final ValueProvider<String> exportPath;
+    private final ValueProvider<String> startTime;
+    private final ValueProvider<String> endTime;
 
-    public Export(ValueProvider<Options> options) {
-      this.options = options;
+    public Export(ValueProvider<String> hl7v2Store, ValueProvider<String> exportPath) {
+      this(hl7v2Store, exportPath, StaticValueProvider.of(""), StaticValueProvider.of(""));
+    }
+
+    public Export(ValueProvider<String> hl7v2Store, ValueProvider<String> exportPath,
+        ValueProvider<String> startTime, ValueProvider<String> endTime) {
+      this.hl7v2Store = hl7v2Store;
+      this.exportPath = exportPath;
+      this.startTime = startTime;
+      this.endTime = endTime;
     }
 
     @Override
     public Export.Result expand(PBegin input) {
       PCollectionTuple parsedMessages = input
-          .apply(Create.ofProvider(options, OptionsCoder.of()))
-          .apply("ScheduleExportOperations", ParDo.of(new ExportMessagesFn()))
+          .apply(Create.ofProvider(hl7v2Store, StringUtf8Coder.of()))
+          .apply("ScheduleExportOperations",
+              ParDo.of(new ExportMessagesFn(exportPath, startTime, endTime)))
           .apply(FileIO.matchAll())
           .apply(FileIO.readMatches())
           .apply("ReadMessagesFromFiles", TextIO.readFiles())
@@ -623,10 +582,10 @@ public class HL7v2IO {
           .setCoder(HealthcareIOErrorCoder.of(StringUtf8Coder.of()));
       input
           .getPipeline()
-          .apply(Create.ofProvider(options, OptionsCoder.of()))
+          .apply(Create.ofProvider(exportPath, StringUtf8Coder.of()))
           .apply(MapElements.into(TypeDescriptors.strings())
-              .via((Options opts) ->
-                  String.format("%s/*", opts.getExportGcsPrefix().replaceAll("/+$", ""))))
+              .via((String path) ->
+                  String.format("%s/*", path.replaceAll("/+$", ""))))
           .apply(Wait.on(messages, errors))
           .apply(FileIO.matchAll().withEmptyMatchTreatment(EmptyMatchTreatment.ALLOW))
           .apply(
@@ -683,9 +642,19 @@ public class HL7v2IO {
     /**
      * A function that schedules an export operation and monitors the status.
      */
-    public static class ExportMessagesFn extends DoFn<Options, String> {
+    public static class ExportMessagesFn extends DoFn<String, String> {
 
       private HealthcareApiClient client;
+      private final ValueProvider<String> exportPath;
+      private final ValueProvider<String> startTime;
+      private final ValueProvider<String> endTime;
+
+      public ExportMessagesFn(ValueProvider<String> exportPath, ValueProvider<String> startTime,
+          ValueProvider<String> endTime) {
+        this.exportPath = exportPath;
+        this.startTime = startTime;
+        this.endTime = endTime;
+      }
 
       @Setup
       public void initClient() throws IOException {
@@ -695,16 +664,16 @@ public class HL7v2IO {
       @ProcessElement
       public void exportMessages(ProcessContext context) throws IOException, InterruptedException,
           HealthcareHttpException {
-        Options options = context.element();
-        String gcsPrefix = options.getExportGcsPrefix();
+        String hl7v2Store = context.element();
+        String exportUriPrefix = exportPath.get();
         Operation operation = client.exportHl7v2Messages(
-            options.getHl7v2Store(), options.getStartTime(), options.getEndTime(), gcsPrefix);
+            hl7v2Store, startTime.get(), endTime.get(), exportUriPrefix);
         operation = client.pollOperation(operation, 500L);
         if (operation.getError() != null) {
           throw new RuntimeException(String.format("Export operation (%s) failed.",
               operation.getName()));
         }
-        context.output(String.format("%s/*", gcsPrefix.replaceAll("/+$", "")));
+        context.output(String.format("%s/*", exportUriPrefix.replaceAll("/+$", "")));
       }
     }
   }

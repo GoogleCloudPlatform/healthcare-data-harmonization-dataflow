@@ -72,6 +72,7 @@ A few notes:
 either `--enableStreamingEngine` (recommended) or a combination of `--autoscalingAlgorithm=THROUGHPUT_BASED` and
 `--maxNumWorkers=N` to manually enable it. See [this page](https://cloud.google.com/dataflow/docs/guides/deploying-a-pipeline#autotuning-features) for more details.
 - For production use, we recommend enabling agent metrics by appending `--experiments=enable_stackdriver_agent_metrics` as an option (you will need to grant `roles/monitoring.metricWriter` to Dataflow controller service account as well), see [this page](https://cloud.google.com/dataflow/docs/guides/using-cloud-monitoring#receive_worker_vm_metrics_from_monitoring_agent) for more details. Additionally, we **highly** recommend limiting the number of threads on each worker, e.g. `--numberOfWorkerHarnessThreads=10`. You can tune the limit based on your workload.
+- To generate a template instead of running the pipeline, add `--stagingLocation=gs://${STAGING_LOCATION} --templateLocation=gs://${TEMPLATE_LOCATION}` to the above command. See [here](https://cloud.google.com/dataflow/docs/guides/templates/creating-templates)
 
 Please take a look at the `PipelineRunner` class to see the concrete meaning of
 each argument.

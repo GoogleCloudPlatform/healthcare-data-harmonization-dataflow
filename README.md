@@ -8,6 +8,7 @@ This directory contains a reference Cloud Dataflow pipeline to convert HL7v2 mes
   * Install [GCC compiler](https://gcc.gnu.org/install/).
   * Install [Go tools](https://golang.org/doc/install).
   * Install [Gradle](https://gradle.org/install/).
+  * Install [Protoc](https://github.com/protocolbuffers/protobuf/releases).
 * Add your public key to [GitHub](https://help.github.com/en/github/authenticating-to-github/adding-a-new-ssh-key-to-your-github-account).
 * Install the [GCloud SDK](https://cloud.google.com/sdk/install).
 * Create a [project](https://cloud.google.com/resource-manager/docs/creating-managing-projects).
@@ -29,7 +30,7 @@ The [Cloud Dataflow Controller Service Account](https://cloud.google.com/dataflo
   * To access messages in your HL7v2 store. The service account only needs the role on the source HL7v2 Store.
 * `roles/healthcare.fhirResourceEditor`.
   * To write transformed resources to your FHIR store. The service account only needs this role on the target FHIR Store.
-* `roles/storage.objectViewer`.
+* `roles/storage.objectAdmin`.
   * To access mapping and harmonization configurations on GCS. The service account needs this role on all GCS buckets that the mappings reside in.
 
 ## How to Run
@@ -40,9 +41,17 @@ The pipeline depends on the [mapping engine](https://github.com/GoogleCloudPlatf
 ./build_deps.sh --work_dir /tmp/work --output_dir `pwd`/lib
 ```
 
+If the shared object cannot be built, try to clean the shared object cache first:
+
+```bash
+sudo ldconfig
+```
+
 A shared object (.so) file gets generated in the `lib` directory after the command finishes.
 
 Next we will build a fat JAR of the pipeline, the purpose is to properly include the shared object so that the Cloud Dataflow runner correctly recognizes it. Run the following from the project directory.
+
+* Please make sure gradle is added to PATH before running the following commands.
 
 ```bash
 # Generate wrapper classes.
@@ -56,6 +65,7 @@ Now run the pipeline with the following command:
 
 ```bash
 # Please set the environment variables in the following command.
+
 java -jar build/libs/converter-0.1.0-all.jar --pubSubSubscription="projects/${PROJECT}/subscriptions/${SUBSCRIPTION}" \
                                              --readErrorPath="gs://${ERROR_BUCKET}/read/read_error.txt" \
                                              --writeErrorPath="gs://${ERROR_BUCKET}/write/write_error.txt" \

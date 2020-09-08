@@ -33,7 +33,6 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/util/jsonutil" /* copybara-comment: jsonutil */
 	"github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_language/transpiler" /* copybara-comment: transpiler */
 	"google.golang.org/protobuf/encoding/prototext" /* copybara-comment: prototext */
 
@@ -42,23 +41,21 @@ import (
 	whistler "github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/transform" /* copybara-comment: transform */
 )
 
-var transformer *whistler.Transformer
+var transformer whistler.Transformer
 
 //export Java_com_google_cloud_healthcare_etl_util_library_TransformWrapper_transform
 func Java_com_google_cloud_healthcare_etl_util_library_TransformWrapper_transform(env *C.JNIEnv, cls C.jclass, cInput C.jstring) C.jstring {
-	input := jStringGoString(env, cInput)
-	i := []byte(input)
-	ji := &jsonutil.JSONContainer{}
-	if err := ji.UnmarshalJSON(i); err != nil {
-		throwRuntimeException(env, fmt.Sprintf("unable to unmarshal JSON: %v", err))
-		return emptyJString(env)
-	}
 	if transformer == nil {
 		throwRuntimeException(env, fmt.Sprint("transformer has not been initialized yet"))
 		return emptyJString(env)
 	}
-	// TODO(b/143478584): Should we expose the transformation configs to the plugin?
-	res, err := transformer.Transform(ji, whistler.TransformationConfigs{})
+	input := jStringGoString(env, cInput)
+	ji, err := transformer.ParseJSON(json.RawMessage(input))
+	if err != nil {
+		throwRuntimeException(env, fmt.Sprintf("unable to unmarshal JSON: %v", err))
+		return emptyJString(env)
+	}
+	res, err := transformer.Transform(ji)
 	if err != nil {
 		throwRuntimeException(env, fmt.Sprintf("unable to transform: %v", err))
 		return emptyJString(env)
@@ -106,8 +103,10 @@ func Java_com_google_cloud_healthcare_etl_util_library_TransformWrapper_initiali
 }
 
 func initialize(dhc *dhpb.DataHarmonizationConfig) error {
+	// TODO(b/143478584): Should we expose the transformation configs to the plugin?
+	tconfig := whistler.TransformationConfig{}
 	var err error
-	transformer, err = whistler.NewTransformer(context.Background(), dhc)
+	transformer, err = whistler.NewTransformer(context.Background(), dhc, tconfig)
 	if err != nil {
 		return fmt.Errorf("unable to initialize data harmonization config: %v", err)
 	}

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.cloud.healthcare.etl.runner;
+package com.google.cloud.healthcare.etl.runner.hl7v2tofhir;
 
 import static com.google.cloud.healthcare.etl.model.ErrorEntry.ERROR_ENTRY_TAG;
 import static com.google.cloud.healthcare.etl.pipeline.MappingFn.MAPPING_TAG;

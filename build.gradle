@@ -30,7 +30,7 @@ sourceSets {
 }
 
 shadowJar {
-    mainClassName = project.findProperty('mainClass') ?: 'com.google.cloud.healthcare.etl.runner.Hl7v2ToFhirStreamingRunner'
+    mainClassName = project.findProperty('mainClass') ?: 'com.google.cloud.healthcare.etl.runner.hl7v2tofhir.Hl7v2ToFhirStreamingRunner'
 }
 
 // Reproduciable builds.

@@ -17,7 +17,7 @@ public class ErrorWriter {
   private static final String WRITE_ERROR_STEP = "WriteErrors";
   private static final String SERIALIZE_ERROR_STEP = "SerializeErrors";
 
-  static void writeErrorEntriesToFile(PCollection<ErrorEntry> errors,
+  public static void writeErrorEntriesToFile(PCollection<ErrorEntry> errors,
       ValueProvider<String> target, String step) {
     errors
         .apply(SERIALIZE_ERROR_STEP,
@@ -27,11 +27,12 @@ public class ErrorWriter {
         .apply(step, TextIO.write().to(target));
   }
 
-  static void writeErrorEntriesToFile(PCollection<ErrorEntry> errors, String target, String step) {
+  public static void writeErrorEntriesToFile(PCollection<ErrorEntry> errors, String target,
+      String step) {
     writeErrorEntriesToFile(errors, StaticValueProvider.of(target), step);
   }
 
-  static <T> void writeHealthcareErrorsToFile(PCollection<HealthcareIOError<T>> errors,
+  public static <T> void writeHealthcareErrorsToFile(PCollection<HealthcareIOError<T>> errors,
       ValueProvider<String> target, String step) {
     HealthcareIOErrorToTableRow<T> errorConverter = new HealthcareIOErrorToTableRow<>();
     errors
@@ -42,21 +43,21 @@ public class ErrorWriter {
         .apply(step, TextIO.write().to(target));
   }
 
-  static <T> void writeHealthcareErrorsToFile(PCollection<HealthcareIOError<T>> errors,
+  public static <T> void writeHealthcareErrorsToFile(PCollection<HealthcareIOError<T>> errors,
       String target, String step) {
       writeHealthcareErrorsToFile(errors, StaticValueProvider.of(target), step);
   }
 
-  static void writeErrorEntriesToFile(PCollection<ErrorEntry> errors, String target) {
+  public static void writeErrorEntriesToFile(PCollection<ErrorEntry> errors, String target) {
     writeErrorEntriesToFile(errors, target, WRITE_ERROR_STEP);
   }
 
-  static <T> void writeHealthcareErrorsToFile(PCollection<HealthcareIOError<T>> errors,
+  public static <T> void writeHealthcareErrorsToFile(PCollection<HealthcareIOError<T>> errors,
       String target) {
     writeHealthcareErrorsToFile(errors, target, WRITE_ERROR_STEP);
   }
 
-  static <T> void writeHealthcareErrorsToFile(PCollection<HealthcareIOError<T>> errors,
+  public static <T> void writeHealthcareErrorsToFile(PCollection<HealthcareIOError<T>> errors,
       ValueProvider<String> target) {
     writeHealthcareErrorsToFile(errors, target, WRITE_ERROR_STEP);
   }

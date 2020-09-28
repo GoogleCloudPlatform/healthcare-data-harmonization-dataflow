@@ -21,6 +21,7 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.healthcare.v1beta1.CloudHealthcare;
+import com.google.api.services.healthcare.v1beta1.CloudHealthcare.Projects.Locations.Datasets.FhirStores.Fhir.Search;
 import com.google.api.services.healthcare.v1beta1.CloudHealthcare.Projects.Locations.Datasets.Hl7V2Stores.Messages;
 import com.google.api.services.healthcare.v1beta1.CloudHealthcareScopes;
 import com.google.api.services.healthcare.v1beta1.model.CreateMessageRequest;
@@ -36,6 +37,8 @@ import com.google.api.services.healthcare.v1beta1.model.ListMessagesResponse;
 import com.google.api.services.healthcare.v1beta1.model.Message;
 import com.google.api.services.healthcare.v1beta1.model.NotificationConfig;
 import com.google.api.services.healthcare.v1beta1.model.Operation;
+import com.google.api.services.healthcare.v1beta1.model.ParserConfig;
+import com.google.api.services.healthcare.v1beta1.model.SearchResourcesRequest;
 import com.google.api.services.storage.StorageScopes;
 import com.google.auth.oauth2.GoogleCredentials;
 import java.io.IOException;
@@ -120,6 +123,31 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
   @Override
   public Hl7V2Store createHL7v2Store(String dataset, String name) throws IOException {
     Hl7V2Store store = new Hl7V2Store();
+    return client
+        .projects()
+        .locations()
+        .datasets()
+        .hl7V2Stores()
+        .create(dataset, store)
+        .setHl7V2StoreId(name)
+        .execute();
+  }
+
+  @Override
+  public Hl7V2Store createHL7v2Store(
+      String dataset,
+      String name,
+      @Nullable ParserConfig parserConfig,
+      @Nullable String pubsubTopic)
+      throws IOException {
+    Hl7V2Store store = new Hl7V2Store();
+    if (parserConfig != null) {
+      store.setParserConfig(parserConfig);
+    }
+    if (pubsubTopic != null) {
+      NotificationConfig notificationConfig = new NotificationConfig().setPubsubTopic(pubsubTopic);
+      store.setNotificationConfig(notificationConfig);
+    }
     return client
         .projects()
         .locations()
@@ -543,6 +571,25 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
   @Override
   public HttpBody readFhirResource(String resourceId) throws IOException {
     return client.projects().locations().datasets().fhirStores().fhir().read(resourceId).execute();
+  }
+
+  public HttpBody searchFhirResource(
+      String fhirStore,
+      String resourceType,
+      @Nullable Map<String, Object> parameters)
+      throws IOException {
+    SearchResourcesRequest request = new SearchResourcesRequest().setResourceType(resourceType);
+    Search search = client
+        .projects()
+        .locations()
+        .datasets()
+        .fhirStores()
+        .fhir()
+        .search(fhirStore, request);
+    if (parameters != null && !parameters.isEmpty()) {
+      parameters.forEach(search::set);
+    }
+    return search.execute();
   }
 
   public static class AuthenticatedRetryInitializer extends RetryHttpRequestInitializer {

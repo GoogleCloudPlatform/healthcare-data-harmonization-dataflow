@@ -21,8 +21,10 @@ import com.google.api.services.healthcare.v1beta1.model.IngestMessageResponse;
 import com.google.api.services.healthcare.v1beta1.model.ListMessagesResponse;
 import com.google.api.services.healthcare.v1beta1.model.Message;
 import com.google.api.services.healthcare.v1beta1.model.Operation;
+import com.google.api.services.healthcare.v1beta1.model.ParserConfig;
 import java.io.IOException;
 import java.text.ParseException;
+import java.util.Map;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.io.gcp.healthcare.HttpHealthcareApiClient.HealthcareHttpException;
 import org.joda.time.Instant;
@@ -158,6 +160,18 @@ public interface HealthcareApiClient {
   HttpBody readFhirResource(String resourceId) throws IOException;
 
   /**
+   * Search fhir resource http body.
+   *
+   * @param fhirStore the fhir store
+   * @param resourceType the resource type
+   * @param parameters the parameters
+   * @return the http body
+   * @throws IOException
+   */
+  HttpBody searchFhirResource(String fhirStore, String resourceType,
+      @Nullable Map<String, Object> parameters) throws IOException;
+
+  /**
    * Create hl 7 v 2 store hl 7 v 2 store.
    *
    * @param dataset the dataset
@@ -167,8 +181,11 @@ public interface HealthcareApiClient {
    */
   Hl7V2Store createHL7v2Store(String dataset, String name) throws IOException;
 
-  FhirStore createFhirStore(String dataset, String name, String version, String pubsubTopic)
-      throws IOException;
+  Hl7V2Store createHL7v2Store(String dataset, String name, @Nullable ParserConfig parserConfig,
+      @Nullable String pubsubTopic) throws IOException;
+
+  FhirStore createFhirStore(String dataset, String name, String version,
+      @Nullable String pubsubTopic) throws IOException;
 
   FhirStore createFhirStore(String dataset, String name, String version) throws IOException;
 

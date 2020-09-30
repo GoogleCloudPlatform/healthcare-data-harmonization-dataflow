@@ -111,7 +111,9 @@ public class Hl7v2ToFhirStreamingRunner {
 
   private static Duration ERROR_LOG_WINDOW_SIZE = Duration.standardSeconds(5);
 
-  public static void main(String[] args) {
+  // createPipeline returns a HL7v2 to FHIR streaming pipeline without run. The integration test
+  // can then start and terminate the created pipeline whenever needed.
+  public static Pipeline createPipeline(String[] args) {
     Options options = PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class);
     Pipeline pipeline = Pipeline.create(options);
 
@@ -188,7 +190,11 @@ public class Hl7v2ToFhirStreamingRunner {
         .apply("RecordWriteErrors", TextIO.write().to(options.getWriteErrorPath())
             .withWindowedWrites()
             .withNumShards(options.getErrorLogShardNum()));
+    return pipeline;
+  }
 
+  public static void main(String[] args) {
+    Pipeline pipeline = createPipeline(args);
     pipeline.run();
   }
 }

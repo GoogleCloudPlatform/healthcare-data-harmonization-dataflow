@@ -199,4 +199,13 @@ public interface HealthcareApiClient {
   Empty deleteHL7v2Store(String store) throws IOException;
 
   Empty deleteFhirStore(String store) throws IOException;
+
+
+  /**
+   * Retrieve metadata of a study in a dicom Store
+   * @param fullWebPath the full path of the study
+   * @return the metadata of the study as a json string
+   * @throws IOException the io exception
+   */
+  String retrieveStudyMetadata(String fullWebPath) throws IOException;
 }

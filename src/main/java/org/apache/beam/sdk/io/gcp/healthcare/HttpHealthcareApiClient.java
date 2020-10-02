@@ -198,6 +198,40 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
   }
 
   @Override
+  public String retrieveStudyMetadata(String fullWebPath) throws IOException {
+    // need error checking
+    String[] webPathSplit = fullWebPath.split("/dicomWeb/");
+
+    String dicomStorePath = webPathSplit[0];
+
+    String[] searchParameters = webPathSplit[1].split("/");
+    String studyId = searchParameters[1];
+//        String seriesId = searchParameters[3];
+//        String instanceId = searchParameters[5];
+
+    String searchQuery = String.format("studies/%s/metadata",
+            studyId);
+
+    return makeRetrieveStudyMetadataRequest(dicomStorePath, searchQuery);
+  }
+
+  private String makeRetrieveStudyMetadataRequest(String dicomStorePath, String searchQuery) throws IOException {
+    CloudHealthcare.Projects.Locations.Datasets.DicomStores.Studies.RetrieveMetadata request = this.client
+            .projects()
+            .locations()
+            .datasets()
+            .dicomStores()
+            .studies()
+            .retrieveMetadata(dicomStorePath, searchQuery);
+    com.google.api.client.http.HttpResponse response = request.executeUnparsed();
+
+    List<Map> instances = response.parseAs(List.class);
+    String firstOrDefaultInstance = instances.get(0).toString();
+
+    return firstOrDefaultInstance;
+  }
+
+  @Override
   public Instant getEarliestHL7v2SendTime(String hl7v2Store, @Nullable String filter)
       throws IOException {
     ListMessagesResponse response =

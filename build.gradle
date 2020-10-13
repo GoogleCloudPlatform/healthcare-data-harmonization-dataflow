@@ -33,6 +33,13 @@ shadowJar {
     mainClassName = project.findProperty('mainClass') ?: 'com.google.cloud.healthcare.etl.runner.hl7v2tofhir.Hl7v2ToFhirStreamingRunner'
 }
 
+test {
+    // Ex: -PexcludeTests=com/google/cloud/healthcare/etl/runner/hl7v2tofhir/integ/*
+    if (project.hasProperty('excludeTests')) {
+        exclude project.property('excludeTests')
+    }
+}
+
 // Reproduciable builds.
 tasks.withType(AbstractArchiveTask) {
     preserveFileTimestamps = false

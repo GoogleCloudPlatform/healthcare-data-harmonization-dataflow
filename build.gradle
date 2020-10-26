@@ -31,6 +31,7 @@ sourceSets {
 
 shadowJar {
     mainClassName = project.findProperty('mainClass') ?: 'com.google.cloud.healthcare.etl.runner.hl7v2tofhir.Hl7v2ToFhirStreamingRunner'
+    dependsOn('buildDeps')
 }
 
 test {
@@ -38,6 +39,7 @@ test {
     if (project.hasProperty('excludeTests')) {
         exclude project.property('excludeTests')
     }
+    dependsOn('buildDeps')
 }
 
 // Reproduciable builds.
@@ -98,5 +100,12 @@ dependencies {
 //=============================================================================
 clean {
     delete 'build'
+    delete 'lib'
     delete files('gradle/wrapper')
+}
+
+task buildDeps(type:Exec) {
+    inputs.dir('deps')
+    outputs.file('lib/libwhistler.so')
+    commandLine './build_deps.sh', '--work_dir', file('build/tmp/build_deps').absolutePath, '--output_dir', file('lib').absolutePath
 }

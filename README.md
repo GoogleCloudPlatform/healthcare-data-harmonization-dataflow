@@ -35,21 +35,7 @@ The [Cloud Dataflow Controller Service Account](https://cloud.google.com/dataflo
 
 ## How to Run
 
-The pipeline depends on the [mapping engine](https://github.com/GoogleCloudPlatform/healthcare-data-harmonization) to process the data. Please build the shared object by running the following command from the project directory:
-
-```bash
-./build_deps.sh --work_dir /tmp/work --output_dir `pwd`/lib
-```
-
-If the shared object cannot be built, try to clean the shared object cache first:
-
-```bash
-sudo ldconfig
-```
-
-A shared object (.so) file gets generated in the `lib` directory after the command finishes.
-
-Next we will build a fat JAR of the pipeline, the purpose is to properly include the shared object so that the Cloud Dataflow runner correctly recognizes it. Run the following from the project directory.
+Build a fat JAR of the pipeline by running the following from the project directory.
 
 * Please make sure gradle is added to PATH before running the following commands.
 

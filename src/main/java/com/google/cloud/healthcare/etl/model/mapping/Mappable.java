@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.cloud.healthcare.etl.model.mapping;
 
+import java.util.Optional;
 import javax.annotation.Nullable;
+import org.joda.time.Instant;
 
-/**
- * Mappable defines a class that can be consumed by the mapping step.
- */
+/** Mappable defines a class that can be consumed by the mapping step. */
 public interface Mappable {
 
   /**
@@ -30,8 +30,14 @@ public interface Mappable {
   @Nullable
   String getId();
 
-  /**
-   * The input to be fed to the mapping engine. This must be a valid JSON string.
-   */
+  /** The input to be fed to the mapping engine. This must be a valid JSON string. */
   String getData();
+
+  /**
+   * The lineage metadata for mappable data to track create time the data. This must be a valid
+   * datetime string in instant format.
+   */
+  default Optional<Instant> getCreateTime() {
+    return Optional.empty();
+  }
 }

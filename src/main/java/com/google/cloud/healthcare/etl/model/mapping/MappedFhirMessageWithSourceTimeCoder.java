@@ -16,34 +16,33 @@ package com.google.cloud.healthcare.etl.model.mapping;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CustomCoder;
 import org.apache.beam.sdk.coders.InstantCoder;
 import org.apache.beam.sdk.coders.NullableCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.joda.time.Instant;
 
-/** Coder for {@link HclsApiHl7v2MappableMessage}. */
-public class HclsApiHl7v2MappableMessageCoder extends CustomCoder<HclsApiHl7v2MappableMessage> {
-
+/** Coder for {@link MappedFhirMessageWithSourceTime}. */
+public class MappedFhirMessageWithSourceTimeCoder extends CustomCoder<MappingOutput> {
   private static final NullableCoder<String> STRING_CODER = NullableCoder.of(StringUtf8Coder.of());
   private static final NullableCoder<Instant> INSTANT_CODER = NullableCoder.of(InstantCoder.of());
 
-  public static HclsApiHl7v2MappableMessageCoder of() {
-    return new HclsApiHl7v2MappableMessageCoder();
+  public static Coder<MappingOutput> of() {
+    return new MappedFhirMessageWithSourceTimeCoder();
   }
 
   @Override
-  public void encode(HclsApiHl7v2MappableMessage value, OutputStream outStream) throws IOException {
-    STRING_CODER.encode(value.getId(), outStream);
-    STRING_CODER.encode(value.getData(), outStream);
-    INSTANT_CODER.encode(value.getCreateTime().orElse(null), outStream);
+  public void encode(MappingOutput value, OutputStream outStream)
+      throws IOException {
+    STRING_CODER.encode(value.getOutput(), outStream);
+    INSTANT_CODER.encode(value.getSourceTime().orElse(null), outStream);
   }
 
   @Override
-  public HclsApiHl7v2MappableMessage decode(InputStream inStream) throws IOException {
-    String id = STRING_CODER.decode(inStream);
+  public MappingOutput decode(InputStream inStream) throws IOException {
     String data = STRING_CODER.decode(inStream);
-    Instant createTime = INSTANT_CODER.decode(inStream);
-    return new HclsApiHl7v2MappableMessage(id, data, createTime);
+    Instant sourceTime = INSTANT_CODER.decode(inStream);
+    return new MappedFhirMessageWithSourceTime(data, sourceTime);
   }
 }

@@ -13,15 +13,8 @@
 // limitations under the License.
 package org.apache.beam.sdk.io.gcp.healthcare;
 
-import com.google.api.services.healthcare.v1beta1.model.Empty;
-import com.google.api.services.healthcare.v1beta1.model.FhirStore;
-import com.google.api.services.healthcare.v1beta1.model.Hl7V2Store;
-import com.google.api.services.healthcare.v1beta1.model.HttpBody;
-import com.google.api.services.healthcare.v1beta1.model.IngestMessageResponse;
-import com.google.api.services.healthcare.v1beta1.model.ListMessagesResponse;
-import com.google.api.services.healthcare.v1beta1.model.Message;
-import com.google.api.services.healthcare.v1beta1.model.Operation;
-import com.google.api.services.healthcare.v1beta1.model.ParserConfig;
+import com.google.api.services.healthcare.v1beta1.model.*;
+
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.Map;
@@ -203,9 +196,13 @@ public interface HealthcareApiClient {
 
   /**
    * Retrieve metadata of a study in a dicom Store
-   * @param fullWebPath the full path of the study
+   * @param dicomWebPath the full path of the study
    * @return the metadata of the study as a json string
    * @throws IOException the io exception
    */
-  String retrieveStudyMetadata(String fullWebPath) throws IOException;
+  String retrieveDicomStudyMetadata(String dicomWebPath) throws IOException;
+
+  DicomStore createDicomStore(String dataset, String name) throws IOException;
+
+  DicomStore createDicomStore(String dataset, String name, String pubsubTopic) throws IOException;
 }

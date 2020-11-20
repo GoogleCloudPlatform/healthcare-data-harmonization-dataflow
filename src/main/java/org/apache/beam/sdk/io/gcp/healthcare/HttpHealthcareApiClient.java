@@ -24,21 +24,7 @@ import com.google.api.services.healthcare.v1beta1.CloudHealthcare;
 import com.google.api.services.healthcare.v1beta1.CloudHealthcare.Projects.Locations.Datasets.FhirStores.Fhir.Search;
 import com.google.api.services.healthcare.v1beta1.CloudHealthcare.Projects.Locations.Datasets.Hl7V2Stores.Messages;
 import com.google.api.services.healthcare.v1beta1.CloudHealthcareScopes;
-import com.google.api.services.healthcare.v1beta1.model.CreateMessageRequest;
-import com.google.api.services.healthcare.v1beta1.model.Empty;
-import com.google.api.services.healthcare.v1beta1.model.FhirStore;
-import com.google.api.services.healthcare.v1beta1.model.GoogleCloudHealthcareV1beta1FhirRestGcsSource;
-import com.google.api.services.healthcare.v1beta1.model.Hl7V2Store;
-import com.google.api.services.healthcare.v1beta1.model.HttpBody;
-import com.google.api.services.healthcare.v1beta1.model.ImportResourcesRequest;
-import com.google.api.services.healthcare.v1beta1.model.IngestMessageRequest;
-import com.google.api.services.healthcare.v1beta1.model.IngestMessageResponse;
-import com.google.api.services.healthcare.v1beta1.model.ListMessagesResponse;
-import com.google.api.services.healthcare.v1beta1.model.Message;
-import com.google.api.services.healthcare.v1beta1.model.NotificationConfig;
-import com.google.api.services.healthcare.v1beta1.model.Operation;
-import com.google.api.services.healthcare.v1beta1.model.ParserConfig;
-import com.google.api.services.healthcare.v1beta1.model.SearchResourcesRequest;
+import com.google.api.services.healthcare.v1beta1.model.*;
 import com.google.api.services.storage.StorageScopes;
 import com.google.auth.oauth2.GoogleCredentials;
 import java.io.IOException;
@@ -198,38 +184,63 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
   }
 
   @Override
-  public String retrieveStudyMetadata(String fullWebPath) throws IOException {
-    // need error checking
-    String[] webPathSplit = fullWebPath.split("/dicomWeb/");
-
+  public String retrieveDicomStudyMetadata(String dicomWebPath) throws IOException {
+    String[] webPathSplit;
+    webPathSplit = dicomWebPath.split("/dicomWeb/");
     String dicomStorePath = webPathSplit[0];
 
-    String[] searchParameters = webPathSplit[1].split("/");
+    String[] searchParameters;
+    searchParameters = webPathSplit[1].split("/");
     String studyId = searchParameters[1];
-//        String seriesId = searchParameters[3];
-//        String instanceId = searchParameters[5];
+    //        String seriesId = searchParameters[3];
+    //        String instanceId = searchParameters[5];
 
-    String searchQuery = String.format("studies/%s/metadata",
-            studyId);
+    String searchQuery = String.format("studies/%s/metadata", studyId);
 
     return makeRetrieveStudyMetadataRequest(dicomStorePath, searchQuery);
   }
 
-  private String makeRetrieveStudyMetadataRequest(String dicomStorePath, String searchQuery) throws IOException {
-    CloudHealthcare.Projects.Locations.Datasets.DicomStores.Studies.RetrieveMetadata request = this.client
+  @Override
+  public DicomStore createDicomStore(String dataset, String name) throws IOException {
+    return createDicomStore(dataset, name, null);
+  }
+
+  @Override
+  public DicomStore createDicomStore(String dataset, String name, @org.checkerframework.checker.nullness.qual.Nullable String pubsubTopic)
+          throws IOException {
+    DicomStore store = new DicomStore();
+
+    if (pubsubTopic != null) {
+      NotificationConfig notificationConfig = new NotificationConfig();
+      notificationConfig.setPubsubTopic(pubsubTopic);
+      store.setNotificationConfig(notificationConfig);
+    }
+
+    return client
             .projects()
             .locations()
             .datasets()
             .dicomStores()
-            .studies()
-            .retrieveMetadata(dicomStorePath, searchQuery);
+            .create(dataset, store)
+            .setDicomStoreId(name)
+            .execute();
+  }
+
+  private String makeRetrieveStudyMetadataRequest(String dicomStorePath, String searchQuery)
+          throws IOException {
+    CloudHealthcare.Projects.Locations.Datasets.DicomStores.Studies.RetrieveMetadata request =
+            this.client
+                    .projects()
+                    .locations()
+                    .datasets()
+                    .dicomStores()
+                    .studies()
+                    .retrieveMetadata(dicomStorePath, searchQuery);
     com.google.api.client.http.HttpResponse response = request.executeUnparsed();
 
-    List<Map> instances = response.parseAs(List.class);
-    String firstOrDefaultInstance = instances.get(0).toString();
-
-    return firstOrDefaultInstance;
+    return response.parseAsString();
   }
+
 
   @Override
   public Instant getEarliestHL7v2SendTime(String hl7v2Store, @Nullable String filter)

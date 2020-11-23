@@ -211,7 +211,22 @@ public interface HealthcareApiClient {
    */
   String retrieveDicomStudyMetadata(String dicomWebPath) throws IOException;
 
+  /**
+   * Create a DICOM store in the given dataset
+   * @param dataset the dataset in which to create the store
+   * @param name the store id of the new dataset
+   * @return the DICOM store object
+   * @throws IOException
+   */
   DicomStore createDicomStore(String dataset, String name) throws IOException;
 
+  /**
+   * Create a DICOM store in the given dataset
+   * @param dataset the dataset in which to create the store
+   * @param name the store id of the new dataset
+   * @param pubsubTopic the PubSub topic to broadcast to when inserting an instance
+   * @return the DICOM store object
+   * @throws IOException
+   */
   DicomStore createDicomStore(String dataset, String name, String pubsubTopic) throws IOException;
 }

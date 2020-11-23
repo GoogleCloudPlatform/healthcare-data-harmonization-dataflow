@@ -29,10 +29,14 @@ import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.Immutabl
  *
  * <h3>Example</h3>
  *
- * {@code Pipeline p = ... String webPath = ... DicomIO.ReadStudyMetadata.Result readMetadataResult
- * = p .apply(Create.of(webPath)) PCollection<String> goodRead =
- * readMetadataResult.getReadResponse() PCollection<String> failRead =
- * readMetadataResult.getFailedReads() }
+ * <pre>{@code
+ * Pipeline p = ...
+ * String webPath = ...
+ * DicomIO.ReadStudyMetadata.Result readMetadataResult = p.apply(Create.of(webPath));
+ * PCollection<String> goodRead = readMetadataResult.getReadResponse();
+ * PCollection<String> failRead = readMetadataResult.getFailedReads();
+ * }***
+ * </pre>
  */
 public class DicomIO {
 
@@ -155,7 +159,7 @@ public class DicomIO {
                     // TODO Change to non-blocking async calls
                     String responseData = dicomStore.retrieveDicomStudyMetadata(dicomWebPath);
                     context.output(METADATA, responseData);
-                } catch (Exception e) {
+                } catch (IOException e) {
                     String errorMessage = e.getMessage();
                     context.output(ERROR_MESSAGE, errorMessage);
                 }

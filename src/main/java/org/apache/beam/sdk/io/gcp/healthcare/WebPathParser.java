@@ -9,6 +9,10 @@ public class WebPathParser {
         public String seriesId;
         public String instanceId;
         public String dicomStorePath;
+        public String project;
+        public String location;
+        public String dataset;
+        public String storeId;
     }
 
     public DicomWebPath parseDicomWebpath(String unparsedWebpath) throws IOException {
@@ -21,6 +25,11 @@ public class WebPathParser {
         DicomWebPath dicomWebPath = new DicomWebPath();
 
         dicomWebPath.dicomStorePath = webPathSplit[0];
+        String[] storePathElements = dicomWebPath.dicomStorePath.split("/");
+        dicomWebPath.project = storePathElements[1];
+        dicomWebPath.location = storePathElements[3];
+        dicomWebPath.dataset = storePathElements[5];
+        dicomWebPath.storeId = storePathElements[7];
 
         String[] searchParameters;
         searchParameters = webPathSplit[1].split("/");

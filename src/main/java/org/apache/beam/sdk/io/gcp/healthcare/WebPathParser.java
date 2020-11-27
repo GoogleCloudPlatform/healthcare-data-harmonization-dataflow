@@ -4,7 +4,7 @@ import java.io.IOException;
 
 public class WebPathParser {
 
-    public class DicomWebPath {
+    public static class DicomWebPath {
         public String studyId;
         public String seriesId;
         public String instanceId;

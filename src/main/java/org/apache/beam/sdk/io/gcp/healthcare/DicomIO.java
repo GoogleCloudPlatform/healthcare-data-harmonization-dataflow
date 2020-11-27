@@ -22,9 +22,8 @@ import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.Immutabl
  *
  * <h3>Reading Study-Level Metadata</h3>
  *
- * The study-level metadata for a dicom instance can be read with {@link ReadStudyMetadata}.
- * Retrieve the metadata of a dicom instance given its store path as a string. This will return a
- * {@link ReadStudyMetadata.Result}. You can fetch the successful calls using getReadResponse(), and
+ * The study-level metadata for a dicom instance can be read with {@link ReadStudyMetadata} using the study path as a string.
+ * This will return a {@link ReadStudyMetadata.Result}. You can fetch the successful calls using getReadResponse(), and
  * any failed reads using getFailedReads().
  *
  * <h3>Example</h3>
@@ -107,7 +106,7 @@ public class DicomIO {
             }
 
             /**
-             * Gets resources.
+             * Gets the read metadata of the resource.
              *
              * @return the resources
              */
@@ -143,7 +142,7 @@ public class DicomIO {
              * @throws IOException
              */
             @Setup
-            public void instantiateHealthcareClient() throws IOException {
+            public void newHealthcareClient() throws IOException {
                 this.dicomStore = new HttpHealthcareApiClient();
             }
 

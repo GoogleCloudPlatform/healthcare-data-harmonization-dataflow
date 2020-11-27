@@ -26,6 +26,10 @@ public class WebPathParser {
 
         dicomWebPath.dicomStorePath = webPathSplit[0];
         String[] storePathElements = dicomWebPath.dicomStorePath.split("/");
+
+        if (storePathElements.length < 8) {
+            throw new IOException("Invalid DICOM web path");
+        }
         dicomWebPath.project = storePathElements[1];
         dicomWebPath.location = storePathElements[3];
         dicomWebPath.dataset = storePathElements[5];
@@ -33,7 +37,7 @@ public class WebPathParser {
 
         String[] searchParameters;
         searchParameters = webPathSplit[1].split("/");
-        if (searchParameters.length < 2) {
+        if (searchParameters.length < 6) {
             throw new IOException("Invalid DICOM web path");
         }
         dicomWebPath.studyId = searchParameters[1];

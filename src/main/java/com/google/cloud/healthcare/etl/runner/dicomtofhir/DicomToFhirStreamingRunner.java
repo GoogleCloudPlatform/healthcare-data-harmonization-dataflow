@@ -1,6 +1,7 @@
 package com.google.cloud.healthcare.etl.runner.dicomtofhir;
 
 import com.google.cloud.healthcare.etl.model.ErrorEntry;
+import com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverter;
 import com.google.cloud.healthcare.etl.model.mapping.HclsApiDicomMappableMessage;
 import com.google.cloud.healthcare.etl.model.mapping.HclsApiDicomMappableMessageCoder;
 import com.google.cloud.healthcare.etl.pipeline.MappingFn;
@@ -8,10 +9,14 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.io.gcp.healthcare.DicomIO;
 import org.apache.beam.sdk.io.gcp.healthcare.FhirIO;
+import org.apache.beam.sdk.io.gcp.healthcare.HealthcareIOError;
+import org.apache.beam.sdk.io.gcp.healthcare.HealthcareIOErrorToTableRow;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
+import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -19,10 +24,12 @@ import org.apache.beam.sdk.options.Validation.Required;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.PCollectionTuple;
-import org.apache.beam.sdk.values.TupleTagList;
-import org.apache.beam.sdk.values.TypeDescriptor;
+import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
+import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.Repeatedly;
+import org.apache.beam.sdk.transforms.windowing.Window;
+import org.apache.beam.sdk.values.*;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +38,11 @@ import java.nio.charset.StandardCharsets;
 
 public class DicomToFhirStreamingRunner {
     private static final Logger LOG = LoggerFactory.getLogger(DicomToFhirStreamingRunner.class);
+    private static Duration ERROR_LOG_WINDOW_SIZE = Duration.standardSeconds(5);
 
+    /**
+    * A DoFn to collect the webpath of the DICOM instance from the PubSub Message.
+     */
     public static class ExtractWebpathFromPubsub extends DoFn<PubsubMessage, String> {
         @ProcessElement
         public void processElement(DoFn<PubsubMessage, String>.ProcessContext context) throws UnsupportedEncodingException {
@@ -43,6 +54,10 @@ public class DicomToFhirStreamingRunner {
         }
     }
 
+    /**
+     * A DoFn that will take the response of the Study Metadata Read call from the DICOM API and reformat it into an
+     * input to be consumed by the mapping library.
+     */
     public static class ReformatMappingFnInputString extends DoFn<String, String> {
         @ProcessElement
         public void processElement(DoFn<String, String>.ProcessContext context) {
@@ -56,6 +71,11 @@ public class DicomToFhirStreamingRunner {
         }
     }
 
+    /**
+     * A DoFn that will take the response of the mapping library and wrap it into a FHIR bundle to be written to the
+     * FHIR store.
+     * TODO: Add a unique ID for each ImagingStudy FHIR resource to be uploaded to prevent creation of multiple FHIR resources for each ImagingStudy.
+     */
     public static class ReformatFhirImportString extends DoFn<String, String> {
         @ProcessElement
         public void processElement(DoFn<String, String>.ProcessContext context) {
@@ -95,6 +115,21 @@ public class DicomToFhirStreamingRunner {
         PCollection<String> successfulReads = dicomResult.getReadResponse();
         PCollection<String> failedReads = dicomResult.getFailedReads();
 
+        HealthcareIOErrorToTableRow<String> errorConverter = new HealthcareIOErrorToTableRow<>();
+        failedReads
+                .apply(Window.<String>into(FixedWindows.of(ERROR_LOG_WINDOW_SIZE))
+                        .triggering(
+                                Repeatedly.forever(
+                                        AfterProcessingTime.pastFirstElementInPane()
+                                                .plusDelayOf(ERROR_LOG_WINDOW_SIZE)))
+                        .withAllowedLateness(Duration.ZERO)
+                        .discardingFiredPanes())
+                .apply(
+                        "WriteReadErrors",
+                        TextIO.write().to(options.getReadErrorPath())
+                                .withWindowedWrites()
+                                .withNumShards(options.getErrorLogShardNum()));
+
         PCollectionTuple mappingResult = successfulReads
                 .apply(ParDo.of(new ReformatMappingFnInputString()))
                 .apply(MapElements.into(
@@ -104,10 +139,44 @@ public class DicomToFhirStreamingRunner {
                 .apply("MapMessages", ParDo.of(mappingFn)
                         .withOutputTags(MappingFn.MAPPING_TAG, TupleTagList.of(ErrorEntry.ERROR_ENTRY_TAG)));
 
+        PCollection<ErrorEntry> mappingError = mappingResult.get(ErrorEntry.ERROR_ENTRY_TAG);
+        mappingError.apply("SerializeMappingErrors", MapElements.into(TypeDescriptors.strings())
+                .via(e -> ErrorEntryConverter.toTableRow(e).toString()))
+                .apply(Window.<String>into(FixedWindows.of(ERROR_LOG_WINDOW_SIZE))
+                        .triggering(
+                                Repeatedly.forever(
+                                        AfterProcessingTime.pastFirstElementInPane()
+                                                .plusDelayOf(ERROR_LOG_WINDOW_SIZE)))
+                        .withAllowedLateness(Duration.ZERO)
+                        .discardingFiredPanes())
+                .apply("ReportMappingErrors",
+                        TextIO.write().to(options.getMappingErrorPath())
+                                .withWindowedWrites()
+                                .withNumShards(options.getErrorLogShardNum()));
+
         FhirIO.Write.Result writeResults = mappingResult
                 .get(MappingFn.MAPPING_TAG)
                 .apply(ParDo.of(new ReformatFhirImportString()))
                 .apply("WriteFHIRBundles", FhirIO.Write.executeBundles(options.getFhirStore()));
+
+        PCollection<HealthcareIOError<String>> failedWrites = writeResults.getFailedBodies();
+
+        HealthcareIOErrorToTableRow<String> bundleErrorConverter =
+                new HealthcareIOErrorToTableRow<>();
+        failedWrites
+                .apply("ConvertBundleErrors", MapElements.into(TypeDescriptors.strings())
+                        .via(resp -> bundleErrorConverter.apply(resp).toString()))
+                .apply(Window.<String>into(FixedWindows.of(ERROR_LOG_WINDOW_SIZE))
+                        .triggering(
+                                Repeatedly.forever(
+                                        AfterProcessingTime.pastFirstElementInPane()
+                                                .plusDelayOf(ERROR_LOG_WINDOW_SIZE)))
+                        .withAllowedLateness(Duration.ZERO)
+                        .discardingFiredPanes())
+                .apply("RecordWriteErrors", TextIO.write().to(options.getWriteErrorPath())
+                        .withWindowedWrites()
+                        .withNumShards(options.getErrorLogShardNum()));
+
         p.run();
     }
 
@@ -129,5 +198,30 @@ public class DicomToFhirStreamingRunner {
         String getFhirStore();
 
         void setFhirStore(String param1String);
+
+        @Description("The path that is used to record all read errors. The path will be treated "
+                + "as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a local file.")
+        @Required
+        String getReadErrorPath();
+        void setReadErrorPath(String readErrorPath);
+
+        @Description("The path that is used to record all write errors. The path will be "
+                + "treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a "
+                + "local file.")
+        @Required
+        String getWriteErrorPath();
+        void setWriteErrorPath(String writeErrorPath);
+
+        @Description("The path that is used to record all mapping errors. The path will be "
+                + "treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a "
+                + "local file.")
+        @Required
+        String getMappingErrorPath();
+        void setMappingErrorPath(String mappingErrorPath);
+
+        @Description("The number of shards when writing errors to GCS.")
+        @Default.Integer(10)
+        Integer getErrorLogShardNum();
+        void setErrorLogShardNum(Integer shardNum);
     }
 }

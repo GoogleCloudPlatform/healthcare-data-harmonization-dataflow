@@ -1,6 +1,6 @@
 package com.google.cloud.healthcare.etl.pipeline;
 
-import com.google.cloud.healthcare.etl.runner.dicomtofhir.DicomToFhirStreamingRunner.ReformatFhirImportString;
+import com.google.cloud.healthcare.etl.runner.dicomtofhir.DicomToFhirStreamingRunner.CreateFhirResourceBundle;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.Create;
@@ -9,7 +9,7 @@ import org.apache.beam.sdk.values.PCollection;
 import org.junit.Rule;
 import org.junit.Test;
 
-public class ReformatFhirImportStringTest {
+public class CreateFhirResourceBundleTest {
     @Rule
     public final transient TestPipeline pipeline = TestPipeline.create();
 
@@ -17,7 +17,7 @@ public class ReformatFhirImportStringTest {
     public void test_successfulReformat() {
         PCollection<String> reformatedString = pipeline
                 .apply(Create.of(fhirResource))
-                .apply(ParDo.of(new ReformatFhirImportString()));
+                .apply(ParDo.of(new CreateFhirResourceBundle()));
 
         PAssert.that(reformatedString).containsInAnyOrder(fhirInputString);
 

@@ -9,6 +9,7 @@ import org.apache.beam.sdk.coders.CustomCoder;
 import org.apache.beam.sdk.coders.NullableCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 
+/** Coder for {@link HclsApiDicomMappableMessage}. */
 public class HclsApiDicomMappableMessageCoder extends CustomCoder<HclsApiDicomMappableMessage> {
     private static final NullableCoder<String> STRING_CODER = NullableCoder.of((Coder)StringUtf8Coder.of());
 

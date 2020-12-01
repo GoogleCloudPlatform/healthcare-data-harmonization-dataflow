@@ -36,6 +36,17 @@ import org.slf4j.LoggerFactory;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * The entry point of the pipeline. It will be triggered upon receiving a PubSub message from the given subscription. From
+ * the message, it will extract the webpath  of a DICOM instance and collect it's metadata from DICOM IO. With the
+ * response, it will map the study metadata to a FHIR ImagingStudyResource and upload it to the given FHIR store.
+ *
+ * The errors for each component are handled separately, e.g. you can specify file paths for each
+ * of the stage (read - DICOM IO, mapping, write - FHIR IO). Right now the shard is set to 1, if
+ * you are seeing issues with regard to writing to GCS, feel free to bump it up to a reasonable
+ * value.
+ *
+ */
 public class DicomToFhirStreamingRunner {
     private static final Logger LOG = LoggerFactory.getLogger(DicomToFhirStreamingRunner.class);
     private static Duration ERROR_LOG_WINDOW_SIZE = Duration.standardSeconds(5);
@@ -74,9 +85,12 @@ public class DicomToFhirStreamingRunner {
     /**
      * A DoFn that will take the response of the mapping library and wrap it into a FHIR bundle to be written to the
      * FHIR store.
-     * TODO: Add a unique ID for each ImagingStudy FHIR resource to be uploaded to prevent creation of multiple FHIR resources for each ImagingStudy.
+     * TODO(b/174594428): Add a unique ID for each ImagingStudy FHIR resource to be uploaded to prevent creation of multiple FHIR resources for each ImagingStudy.
      */
-    public static class ReformatFhirImportString extends DoFn<String, String> {
+    public static class CreateFhirResourceBundle extends DoFn<String, String> {
+        private static final String RequestMethod = "PUT";
+        private static final String InnerResourceType = "ImagingStudy";
+
         @ProcessElement
         public void processElement(DoFn<String, String>.ProcessContext context) {
             String mappingOutputString = context.element();
@@ -85,8 +99,8 @@ public class DicomToFhirStreamingRunner {
             JsonObject mappingOutput = gson.fromJson(mappingOutputString, JsonObject.class);
             JsonObject requestObj = new JsonObject();
 
-            requestObj.addProperty("method", "PUT");
-            requestObj.addProperty("url", "ImagingStudy");
+            requestObj.addProperty("method", RequestMethod);
+            requestObj.addProperty("url", InnerResourceType);
             JsonObject entryObj = new JsonObject();
             entryObj.add("resource", mappingOutput);
             entryObj.add("request", requestObj);
@@ -156,7 +170,7 @@ public class DicomToFhirStreamingRunner {
 
         FhirIO.Write.Result writeResults = mappingResult
                 .get(MappingFn.MAPPING_TAG)
-                .apply(ParDo.of(new ReformatFhirImportString()))
+                .apply(ParDo.of(new CreateFhirResourceBundle()))
                 .apply("WriteFHIRBundles", FhirIO.Write.executeBundles(options.getFhirStore()));
 
         PCollection<HealthcareIOError<String>> failedWrites = writeResults.getFailedBodies();

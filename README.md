@@ -6,11 +6,11 @@ This directory contains a reference Cloud Dataflow pipeline to convert HL7v2 mes
 
 * Have a Linux (Ubuntu & Debian preferred) machine ready.
   * Install [GCC compiler](https://gcc.gnu.org/install/).
-  * Install [Go tools](https://golang.org/doc/install).
-  * Install [Gradle](https://gradle.org/install/).
-  * Install [Protoc](https://github.com/protocolbuffers/protobuf/releases).
+  * Install [Go tools](https://golang.org/doc/install), versions >= [1.14](https://golang.org/dl/) are recommended.
+  * Install [Gradle](https://gradle.org/install/), version [6.3.0](https://gradle.org/next-steps/?version=6.3&format=bin) is recommended.
+  * Install [Protoc](https://github.com/protocolbuffers/protobuf/releases), version [3.14.0](https://github.com/protocolbuffers/protobuf/releases) is recommended.
 * Add your public key to [GitHub](https://help.github.com/en/github/authenticating-to-github/adding-a-new-ssh-key-to-your-github-account).
-* Install the [GCloud SDK](https://cloud.google.com/sdk/install).
+* Install the latest [GCloud SDK](https://cloud.google.com/sdk/install).
 * Create a [project](https://cloud.google.com/resource-manager/docs/creating-managing-projects).
 * Create an [HL7v2 Store](https://cloud.google.com/healthcare/docs/how-tos/hl7v2).
   * Make sure to use beta endpoints and provide `NotificationConfig`s and a `ParserConfig`.

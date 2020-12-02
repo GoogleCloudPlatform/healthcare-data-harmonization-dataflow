@@ -48,7 +48,6 @@ import java.nio.charset.StandardCharsets;
  *
  */
 public class DicomToFhirStreamingRunner {
-    private static final Logger LOG = LoggerFactory.getLogger(DicomToFhirStreamingRunner.class);
     private static Duration ERROR_LOG_WINDOW_SIZE = Duration.standardSeconds(5);
 
     public interface Options extends PipelineOptions {
@@ -105,7 +104,6 @@ public class DicomToFhirStreamingRunner {
             PubsubMessage msg = context.element();
             String webpath = new String(msg.getPayload(), StandardCharsets.UTF_8);
             context.output(webpath);
-            DicomToFhirStreamingRunner.LOG.info("Extracted webpath");
         }
     }
 
@@ -122,7 +120,6 @@ public class DicomToFhirStreamingRunner {
             JsonObject jsonObject = new JsonObject();
             jsonObject.add("study", jsonArray);
             context.output(gson.toJson(jsonObject));
-            DicomToFhirStreamingRunner.LOG.info("Sending instance to be mapped");
         }
     }
 
@@ -156,7 +153,6 @@ public class DicomToFhirStreamingRunner {
             jsonObject.addProperty("type", "batch");
             jsonObject.add("entry", entries);
             context.output(gson.toJson(jsonObject));
-            DicomToFhirStreamingRunner.LOG.info("Uploading to FHIR store");
         }
     }
 

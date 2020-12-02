@@ -1,4 +1,4 @@
-package com.google.cloud.healthcare.etl.pipeline;
+package com.google.cloud.healthcare.etl.runner.dicomtofhir;
 
 import com.google.cloud.healthcare.etl.runner.dicomtofhir.DicomToFhirStreamingRunner.ExtractWebpathFromPubsub;
 import org.apache.beam.sdk.Pipeline;

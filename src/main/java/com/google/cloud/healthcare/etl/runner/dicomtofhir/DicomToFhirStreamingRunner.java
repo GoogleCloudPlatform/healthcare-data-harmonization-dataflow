@@ -98,7 +98,7 @@ public class DicomToFhirStreamingRunner {
     /**
     * A DoFn to collect the webpath of the DICOM instance from the PubSub Message.
      */
-    public static class ExtractWebpathFromPubsub extends DoFn<PubsubMessage, String> {
+    static class ExtractWebpathFromPubsub extends DoFn<PubsubMessage, String> {
         @ProcessElement
         public void processElement(DoFn<PubsubMessage, String>.ProcessContext context) throws UnsupportedEncodingException {
             PubsubMessage msg = context.element();
@@ -111,11 +111,12 @@ public class DicomToFhirStreamingRunner {
      * A DoFn that will take the response of the Study Metadata Read call from the DICOM API and reformat it into an
      * input to be consumed by the mapping library.
      */
-    public static class CreateMappingFnInput extends DoFn<String, String> {
+    static class CreateMappingFnInput extends DoFn<String, String> {
+        public static final Gson gson = new Gson();
+
         @ProcessElement
         public void processElement(DoFn<String, String>.ProcessContext context) {
             String dicomMetadataResponse = context.element();
-            Gson gson = new Gson();
             JsonArray jsonArray = gson.fromJson(dicomMetadataResponse, JsonArray.class);
             JsonObject jsonObject = new JsonObject();
             jsonObject.add("study", jsonArray);
@@ -129,7 +130,7 @@ public class DicomToFhirStreamingRunner {
      * TODO(b/174594428): Add a unique ID for each ImagingStudy FHIR resource to be uploaded to prevent creation of
      * multiple FHIR resources for each ImagingStudy.
      */
-    public static class CreateFhirResourceBundle extends DoFn<String, String> {
+    static class CreateFhirResourceBundle extends DoFn<String, String> {
         private static final String RequestMethod = "PUT";
         private static final String InnerResourceType = "ImagingStudy";
 

@@ -42,28 +42,30 @@ import java.nio.charset.StandardCharsets;
  * response, it will map the study metadata to a FHIR ImagingStudyResource and upload it to the given FHIR store.
  *
  * The errors for each component are handled separately, e.g. you can specify file paths for each
- * of the stage (read - DICOM IO, mapping, write - FHIR IO). Right now the shard is set to 1, if
- * you are seeing issues with regard to writing to GCS, feel free to bump it up to a reasonable
- * value.
+ * of the stage (read - DICOM IO, mapping, write - FHIR IO).
  *
  */
 public class DicomToFhirStreamingRunner {
     private static Duration ERROR_LOG_WINDOW_SIZE = Duration.standardSeconds(5);
 
     public interface Options extends PipelineOptions {
-        @Description("The PubSub subscription to listen to, must be of the full format: projects/project_id/subscriptions/subscription_id")
+        @Description("The PubSub subscription to listen to, must be of the full format: " +
+                "projects/project_id/subscriptions/subscription_id")
         @Required
         String getPubSubSubscription();
 
         void setPubSubSubscription(String param1String);
 
-        @Description("The path to the mapping configurations. The path will be treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a local file. Please see: https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/blob/baa4e0c7849413f7b44505a8410ee7f52745427a/mapping_configs/README.md for more details on the mapping configuration structure.")
+        @Description("The path to the mapping configurations. The path will be treated as a GCS path if the " +
+                "path starts with the GCS scheme (\"gs\"), otherwise a local file. Please see: " +
+                "https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/blob/baa4e0c7849413f7b44505a8410ee7f52745427a/mapping_configs/README.md for more details on the mapping configuration structure.")
         @Required
         String getMappingPath();
 
         void setMappingPath(String param1String);
 
-        @Description("The target FHIR Store to write data to, must be of the full format: projects/project_id/locations/location/datasets/dataset_id/fhirStores/fhir_store_id")
+        @Description("The target FHIR Store to write data to, must be of the full format: " +
+                "projects/project_id/locations/location/datasets/dataset_id/fhirStores/fhir_store_id")
         @Required
         String getFhirStore();
 
@@ -125,10 +127,11 @@ public class DicomToFhirStreamingRunner {
     }
 
     /**
-     * A DoFn that will take the response of the mapping library and wrap it into a FHIR bundle to be written to the
-     * FHIR store.
+     * A DoFn that will take the response of the mapping library (a FHIR ImagingStudy resource as a json string) and
+     * wrap it into a FHIR bundle to be written to the FHIR store.
+     * See https://cloud.google.com/healthcare/docs/how-tos/fhir-bundles#executing_a_bundle
      * TODO(b/174594428): Add a unique ID for each ImagingStudy FHIR resource to be uploaded to prevent creation of
-     * multiple FHIR resources for each ImagingStudy.
+     * a new FHIR resource for every DICOM instance in an ImagingStudy.
      */
     static class CreateFhirResourceBundle extends DoFn<String, String> {
         private static final String RequestMethod = "PUT";

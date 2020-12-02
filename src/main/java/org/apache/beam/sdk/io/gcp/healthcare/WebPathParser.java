@@ -15,11 +15,11 @@ public class WebPathParser {
         public String storeId;
     }
 
-    public DicomWebPath parseDicomWebpath(String unparsedWebpath) throws IOException {
+    public DicomWebPath parseDicomWebpath(String unparsedWebpath) throws IllegalArgumentException {
         String[] webPathSplit = unparsedWebpath.split("/dicomWeb/");
 
         if (webPathSplit.length != 2) {
-            throw new IOException("Invalid DICOM web path");
+            throw new IllegalArgumentException("Invalid DICOM web path");
         }
 
         DicomWebPath dicomWebPath = new DicomWebPath();
@@ -28,7 +28,7 @@ public class WebPathParser {
         String[] storePathElements = dicomWebPath.dicomStorePath.split("/");
 
         if (storePathElements.length < 8) {
-            throw new IOException("Invalid DICOM web path");
+            throw new IllegalArgumentException("Invalid DICOM web path");
         }
         dicomWebPath.project = storePathElements[1];
         dicomWebPath.location = storePathElements[3];
@@ -38,7 +38,7 @@ public class WebPathParser {
         String[] searchParameters;
         searchParameters = webPathSplit[1].split("/");
         if (searchParameters.length < 6) {
-            throw new IOException("Invalid DICOM web path");
+            throw new IllegalArgumentException("Invalid DICOM web path");
         }
         dicomWebPath.studyId = searchParameters[1];
         dicomWebPath.seriesId = searchParameters[3];

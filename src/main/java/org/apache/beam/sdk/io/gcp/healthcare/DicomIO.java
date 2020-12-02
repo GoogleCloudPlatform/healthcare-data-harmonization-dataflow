@@ -161,6 +161,9 @@ public class DicomIO {
                 } catch (IOException e) {
                     String errorMessage = e.getMessage();
                     context.output(ERROR_MESSAGE, errorMessage);
+                } catch (IllegalArgumentException e) {
+                    String errorMessage = e.getMessage();
+                    context.output(ERROR_MESSAGE, errorMessage);
                 }
             }
         }

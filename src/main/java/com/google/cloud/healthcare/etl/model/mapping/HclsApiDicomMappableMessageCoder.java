@@ -11,7 +11,7 @@ import org.apache.beam.sdk.coders.StringUtf8Coder;
 
 /** Coder for {@link HclsApiDicomMappableMessage}. */
 public class HclsApiDicomMappableMessageCoder extends CustomCoder<HclsApiDicomMappableMessage> {
-    private static final NullableCoder<String> STRING_CODER = NullableCoder.of((Coder)StringUtf8Coder.of());
+    private static final NullableCoder<String> STRING_CODER = NullableCoder.of((Coder) StringUtf8Coder.of());
 
     public static HclsApiDicomMappableMessageCoder of() {
         return new HclsApiDicomMappableMessageCoder();
@@ -22,7 +22,7 @@ public class HclsApiDicomMappableMessageCoder extends CustomCoder<HclsApiDicomMa
     }
 
     public HclsApiDicomMappableMessage decode(InputStream inStream) throws CoderException, IOException {
-        String data = (String)STRING_CODER.decode(inStream);
+        String data = STRING_CODER.decode(inStream);
         return new HclsApiDicomMappableMessage(data);
     }
 }

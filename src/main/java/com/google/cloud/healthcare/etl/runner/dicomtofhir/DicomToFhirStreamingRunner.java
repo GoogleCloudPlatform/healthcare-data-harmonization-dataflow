@@ -51,6 +51,51 @@ public class DicomToFhirStreamingRunner {
     private static final Logger LOG = LoggerFactory.getLogger(DicomToFhirStreamingRunner.class);
     private static Duration ERROR_LOG_WINDOW_SIZE = Duration.standardSeconds(5);
 
+    public interface Options extends PipelineOptions {
+        @Description("The PubSub subscription to listen to, must be of the full format: projects/project_id/subscriptions/subscription_id")
+        @Required
+        String getPubSubSubscription();
+
+        void setPubSubSubscription(String param1String);
+
+        @Description("The path to the mapping configurations. The path will be treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a local file. Please see: https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/blob/baa4e0c7849413f7b44505a8410ee7f52745427a/mapping_configs/README.md for more details on the mapping configuration structure.")
+        @Required
+        String getMappingPath();
+
+        void setMappingPath(String param1String);
+
+        @Description("The target FHIR Store to write data to, must be of the full format: projects/project_id/locations/location/datasets/dataset_id/fhirStores/fhir_store_id")
+        @Required
+        String getFhirStore();
+
+        void setFhirStore(String param1String);
+
+        @Description("The path that is used to record all read errors. The path will be treated "
+                + "as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a local file.")
+        @Required
+        String getReadErrorPath();
+        void setReadErrorPath(String readErrorPath);
+
+        @Description("The path that is used to record all write errors. The path will be "
+                + "treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a "
+                + "local file.")
+        @Required
+        String getWriteErrorPath();
+        void setWriteErrorPath(String writeErrorPath);
+
+        @Description("The path that is used to record all mapping errors. The path will be "
+                + "treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a "
+                + "local file.")
+        @Required
+        String getMappingErrorPath();
+        void setMappingErrorPath(String mappingErrorPath);
+
+        @Description("The number of shards when writing errors to GCS.")
+        @Default.Integer(10)
+        Integer getErrorLogShardNum();
+        void setErrorLogShardNum(Integer shardNum);
+    }
+
     /**
     * A DoFn to collect the webpath of the DICOM instance from the PubSub Message.
      */
@@ -58,8 +103,7 @@ public class DicomToFhirStreamingRunner {
         @ProcessElement
         public void processElement(DoFn<PubsubMessage, String>.ProcessContext context) throws UnsupportedEncodingException {
             PubsubMessage msg = context.element();
-            byte[] msgPayload = msg.getPayload();
-            String webpath = new String(msgPayload, StandardCharsets.UTF_8);
+            String webpath = new String(msg.getPayload(), StandardCharsets.UTF_8);
             context.output(webpath);
             DicomToFhirStreamingRunner.LOG.info("Extracted webpath");
         }
@@ -69,7 +113,7 @@ public class DicomToFhirStreamingRunner {
      * A DoFn that will take the response of the Study Metadata Read call from the DICOM API and reformat it into an
      * input to be consumed by the mapping library.
      */
-    public static class ReformatMappingFnInputString extends DoFn<String, String> {
+    public static class CreateMappingFnInput extends DoFn<String, String> {
         @ProcessElement
         public void processElement(DoFn<String, String>.ProcessContext context) {
             String dicomMetadataResponse = context.element();
@@ -85,7 +129,8 @@ public class DicomToFhirStreamingRunner {
     /**
      * A DoFn that will take the response of the mapping library and wrap it into a FHIR bundle to be written to the
      * FHIR store.
-     * TODO(b/174594428): Add a unique ID for each ImagingStudy FHIR resource to be uploaded to prevent creation of multiple FHIR resources for each ImagingStudy.
+     * TODO(b/174594428): Add a unique ID for each ImagingStudy FHIR resource to be uploaded to prevent creation of
+     * multiple FHIR resources for each ImagingStudy.
      */
     public static class CreateFhirResourceBundle extends DoFn<String, String> {
         private static final String RequestMethod = "PUT";
@@ -144,8 +189,8 @@ public class DicomToFhirStreamingRunner {
                                 .withWindowedWrites()
                                 .withNumShards(options.getErrorLogShardNum()));
 
-        PCollectionTuple mappingResult = successfulReads
-                .apply(ParDo.of(new ReformatMappingFnInputString()))
+        PCollectionTuple mapDicomStudyToFhirBundleRequest = successfulReads
+                .apply(ParDo.of(new CreateMappingFnInput()))
                 .apply(MapElements.into(
                         TypeDescriptor.of(HclsApiDicomMappableMessage.class))
                         .via(HclsApiDicomMappableMessage::from))
@@ -153,7 +198,7 @@ public class DicomToFhirStreamingRunner {
                 .apply("MapMessages", ParDo.of(mappingFn)
                         .withOutputTags(MappingFn.MAPPING_TAG, TupleTagList.of(ErrorEntry.ERROR_ENTRY_TAG)));
 
-        PCollection<ErrorEntry> mappingError = mappingResult.get(ErrorEntry.ERROR_ENTRY_TAG);
+        PCollection<ErrorEntry> mappingError = mapDicomStudyToFhirBundleRequest.get(ErrorEntry.ERROR_ENTRY_TAG);
         mappingError.apply("SerializeMappingErrors", MapElements.into(TypeDescriptors.strings())
                 .via(e -> ErrorEntryConverter.toTableRow(e).toString()))
                 .apply(Window.<String>into(FixedWindows.of(ERROR_LOG_WINDOW_SIZE))
@@ -168,7 +213,7 @@ public class DicomToFhirStreamingRunner {
                                 .withWindowedWrites()
                                 .withNumShards(options.getErrorLogShardNum()));
 
-        FhirIO.Write.Result writeResults = mappingResult
+        FhirIO.Write.Result writeResults = mapDicomStudyToFhirBundleRequest
                 .get(MappingFn.MAPPING_TAG)
                 .apply(ParDo.of(new CreateFhirResourceBundle()))
                 .apply("WriteFHIRBundles", FhirIO.Write.executeBundles(options.getFhirStore()));
@@ -192,50 +237,5 @@ public class DicomToFhirStreamingRunner {
                         .withNumShards(options.getErrorLogShardNum()));
 
         p.run();
-    }
-
-    public interface Options extends PipelineOptions {
-        @Description("The PubSub subscription to listen to, must be of the full format: projects/project_id/subscriptions/subscription_id")
-        @Required
-        String getPubSubSubscription();
-
-        void setPubSubSubscription(String param1String);
-
-        @Description("The path to the mapping configurations. The path will be treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a local file. Please see: https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/blob/baa4e0c7849413f7b44505a8410ee7f52745427a/mapping_configs/README.md for more details on the mapping configuration structure.")
-        @Required
-        String getMappingPath();
-
-        void setMappingPath(String param1String);
-
-        @Description("The target FHIR Store to write data to, must be of the full format: projects/project_id/locations/location/datasets/dataset_id/fhirStores/fhir_store_id")
-        @Required
-        String getFhirStore();
-
-        void setFhirStore(String param1String);
-
-        @Description("The path that is used to record all read errors. The path will be treated "
-                + "as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a local file.")
-        @Required
-        String getReadErrorPath();
-        void setReadErrorPath(String readErrorPath);
-
-        @Description("The path that is used to record all write errors. The path will be "
-                + "treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a "
-                + "local file.")
-        @Required
-        String getWriteErrorPath();
-        void setWriteErrorPath(String writeErrorPath);
-
-        @Description("The path that is used to record all mapping errors. The path will be "
-                + "treated as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a "
-                + "local file.")
-        @Required
-        String getMappingErrorPath();
-        void setMappingErrorPath(String mappingErrorPath);
-
-        @Description("The number of shards when writing errors to GCS.")
-        @Default.Integer(10)
-        Integer getErrorLogShardNum();
-        void setErrorLogShardNum(Integer shardNum);
     }
 }

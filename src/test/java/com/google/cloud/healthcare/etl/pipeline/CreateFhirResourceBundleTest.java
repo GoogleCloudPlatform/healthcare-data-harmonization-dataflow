@@ -10,6 +10,11 @@ import org.junit.Rule;
 import org.junit.Test;
 
 public class CreateFhirResourceBundleTest {
+
+    private final String fhirResource = "{\"resourceType\": \"ImagingStudy\"}";
+
+    private final String fhirInputString = "{\"resourceType\":\"Bundle\",\"type\":\"batch\",\"entry\":[{\"resource\":{\"resourceType\":\"ImagingStudy\"},\"request\":{\"method\":\"PUT\",\"url\":\"ImagingStudy\"}}]}";
+
     @Rule
     public final transient TestPipeline pipeline = TestPipeline.create();
 
@@ -23,8 +28,4 @@ public class CreateFhirResourceBundleTest {
 
         pipeline.run();
     }
-
-    private final String fhirResource = "{\"resourceType\": \"ImagingStudy\"}";
-
-    private final String fhirInputString = "{\"resourceType\":\"Bundle\",\"type\":\"batch\",\"entry\":[{\"resource\":{\"resourceType\":\"ImagingStudy\"},\"request\":{\"method\":\"PUT\",\"url\":\"ImagingStudy\"}}]}";
 }

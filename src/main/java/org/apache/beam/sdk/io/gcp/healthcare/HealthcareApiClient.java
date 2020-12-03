@@ -23,7 +23,6 @@ import com.google.api.services.healthcare.v1beta1.model.ListMessagesResponse;
 import com.google.api.services.healthcare.v1beta1.model.Message;
 import com.google.api.services.healthcare.v1beta1.model.Operation;
 import com.google.api.services.healthcare.v1beta1.model.ParserConfig;
-
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.Map;

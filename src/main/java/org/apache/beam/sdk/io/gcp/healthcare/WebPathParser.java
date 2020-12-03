@@ -15,8 +15,14 @@ package org.apache.beam.sdk.io.gcp.healthcare;
 
 import java.io.IOException;
 
+/**
+ * A utility class to aid in the parsing of Healthcare API webpaths.
+ */
 public class WebPathParser {
 
+    /**
+     * An object that holds DICOM webpath components.
+     */
     public static class DicomWebPath {
         public String studyId;
         public String seriesId;
@@ -28,6 +34,12 @@ public class WebPathParser {
         public String storeId;
     }
 
+    /**
+     * Resolves a string webpath into a DicomWebPath object.
+     * @param unparsedWebpath The webpath as a raw string.
+     * @return A parsed DicomWebPath Object.
+     * @throws IOException
+     */
     public DicomWebPath parseDicomWebpath(String unparsedWebpath) throws IOException {
         String[] webPathSplit = unparsedWebpath.split("/dicomWeb/");
 

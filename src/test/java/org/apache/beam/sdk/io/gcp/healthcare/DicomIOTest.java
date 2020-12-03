@@ -14,7 +14,6 @@
 package org.apache.beam.sdk.io.gcp.healthcare;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestPipeline;
@@ -29,6 +28,9 @@ import org.junit.runners.JUnit4;
 public class DicomIOTest {
   @Rule public final transient TestPipeline pipeline = TestPipeline.create();
 
+  /**
+   * Testing the DicomIO's ability to read study metadata of an instance.
+   */
   @Test
   public void test_Dicom_failedMetadataRead() {
     String badWebPath = "foo";

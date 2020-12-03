@@ -149,21 +149,21 @@ public class DicomToFhirStreamingRunner {
      * a new FHIR resource for every DICOM instance in an ImagingStudy.
      */
     static class CreateFhirResourceBundle extends DoFn<String, String> {
-        private static final String RequestMethod = "PUT";
-        private static final String InnerResourceType = "ImagingStudy";
+        private static final String PutHttpMethod = "PUT";
+        private static final String ImagingStudyType = "ImagingStudy";
 
         @ProcessElement
         public void processElement(DoFn<String, String>.ProcessContext context) {
             String mappingOutputString = context.element();
 
             Gson gson = new Gson();
-            JsonObject mappingOutput = gson.fromJson(mappingOutputString, JsonObject.class);
+            JsonObject mappingFhirResource = gson.fromJson(mappingOutputString, JsonObject.class);
             JsonObject requestObj = new JsonObject();
 
-            requestObj.addProperty("method", RequestMethod);
-            requestObj.addProperty("url", InnerResourceType);
+            requestObj.addProperty("method", PutHttpMethod);
+            requestObj.addProperty("url", ImagingStudyType);
             JsonObject entryObj = new JsonObject();
-            entryObj.add("resource", mappingOutput);
+            entryObj.add("resource", mappingFhirResource);
             entryObj.add("request", requestObj);
             JsonArray entries = new JsonArray();
             entries.add(entryObj);

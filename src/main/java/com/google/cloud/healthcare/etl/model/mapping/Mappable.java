@@ -13,12 +13,13 @@
 // limitations under the License.
 package com.google.cloud.healthcare.etl.model.mapping;
 
+import java.io.Serializable;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.joda.time.Instant;
 
 /** Mappable defines a class that can be consumed by the mapping step. */
-public interface Mappable {
+public interface Mappable extends Serializable {
 
   /**
    * A mappable must have a way to identify itself. The identifier doesn't have to be unique or

@@ -28,10 +28,12 @@ import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
-import org.apache.beam.sdk.values.*;
+import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.TypeDescriptor;
+import org.apache.beam.sdk.values.TypeDescriptors;
+import org.apache.beam.sdk.values.PCollectionTuple;
+import org.apache.beam.sdk.values.TupleTagList;
 import org.joda.time.Duration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
@@ -160,14 +162,14 @@ public class DicomToFhirStreamingRunner {
         }
     }
 
-    public static void main(String[] args) {
-        Options options = PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class);
-        Pipeline p = Pipeline.create(options);
-
-        MappingFn<HclsApiDicomMappableMessage> mappingFn = MappingFn.of(options.getMappingPath());
-
-        DicomIO.ReadStudyMetadata.Result dicomResult = p
-                .apply(PubsubIO.readMessages().fromSubscription(options.getPubSubSubscription()))
+    /**
+     * Read the study metadata of the instance given in the body of the PubSub Message.
+     * @param pubsubMsg The PubSub message containing the webpath of the instance to be mapped.
+     * @param options The pipeline configuration.
+     * @return A PCollection of Strings containing successful read operations.
+     */
+    private PCollection<String> readDicomStudyMetadata(PCollection<PubsubMessage> pubsubMsg, Options options) {
+        DicomIO.ReadStudyMetadata.Result dicomResult = pubsubMsg
                 .apply(ParDo.of(new ExtractWebpathFromPubsub()))
                 .apply(DicomIO.readStudyMetadata());
 
@@ -189,7 +191,19 @@ public class DicomToFhirStreamingRunner {
                                 .withWindowedWrites()
                                 .withNumShards(options.getErrorLogShardNum()));
 
-        PCollectionTuple mapDicomStudyToFhirBundleRequest = successfulReads
+        return successfulReads;
+    }
+
+    /**
+     * Map the given study to a FHIR ImagingStudy resource.
+     * @param studyMetadata A PCollection of Strings containing successful read operations.
+     * @param options The pipeline configuration.
+     * @return A PCollection of String containing successfully mapped FHIR resources.
+     */
+    private PCollection<String> mapDicomStudyMetadataToFhirResource(PCollection<String> studyMetadata, Options options) {
+        MappingFn<HclsApiDicomMappableMessage> mappingFn = MappingFn.of(options.getMappingPath());
+
+        PCollectionTuple mapDicomStudyToFhirBundleRequest = studyMetadata
                 .apply(ParDo.of(new CreateMappingFnInput()))
                 .apply(MapElements.into(
                         TypeDescriptor.of(HclsApiDicomMappableMessage.class))
@@ -213,9 +227,17 @@ public class DicomToFhirStreamingRunner {
                                 .withWindowedWrites()
                                 .withNumShards(options.getErrorLogShardNum()));
 
-        FhirIO.Write.Result writeResults = mapDicomStudyToFhirBundleRequest
-                .get(MappingFn.MAPPING_TAG)
-                .apply(ParDo.of(new CreateFhirResourceBundle()))
+        return mapDicomStudyToFhirBundleRequest
+                .get(MappingFn.MAPPING_TAG);
+    }
+
+    /**
+     * Write the mapped FHIR resources to the given FHIR store.
+     * @param fhirResource A PCollection of String containing successfully mapped FHIR resources.
+     * @param options The pipeline configuration.
+     */
+    private void writeToFhirStore(PCollection<String> fhirResource, Options options) {
+        FhirIO.Write.Result writeResults = fhirResource.apply(ParDo.of(new CreateFhirResourceBundle()))
                 .apply("WriteFHIRBundles", FhirIO.Write.executeBundles(options.getFhirStore()));
 
         PCollection<HealthcareIOError<String>> failedWrites = writeResults.getFailedBodies();
@@ -235,6 +257,19 @@ public class DicomToFhirStreamingRunner {
                 .apply("RecordWriteErrors", TextIO.write().to(options.getWriteErrorPath())
                         .withWindowedWrites()
                         .withNumShards(options.getErrorLogShardNum()));
+    }
+
+    public static void main(String[] args) {
+        DicomToFhirStreamingRunner runner = new DicomToFhirStreamingRunner();
+        Options options = PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class);
+        Pipeline p = Pipeline.create(options);
+
+        PCollection<PubsubMessage> newPubsubMsgCollection = p
+                .apply(PubsubIO.readMessages().fromSubscription(options.getPubSubSubscription()));
+
+        PCollection<String> studyMetadata = runner.readDicomStudyMetadata(newPubsubMsgCollection, options);
+        PCollection<String> fhirResource = runner.mapDicomStudyMetadataToFhirResource(studyMetadata, options);
+        runner.writeToFhirStore(fhirResource, options);
 
         p.run();
     }

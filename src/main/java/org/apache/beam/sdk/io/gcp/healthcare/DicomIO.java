@@ -35,10 +35,9 @@ import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.Immutabl
  *
  * <h3>Reading Study-Level Metadata</h3>
  *
- * The study-level metadata for a dicom instance can be read with {@link ReadStudyMetadata}
- * using the study path as a string. This will return a {@link ReadStudyMetadata.Result}.
- * You can fetch the successful calls using getReadResponse(), and any failed reads
- * using getFailedReads().
+ * The study-level metadata for a dicom instance can be read with {@link ReadStudyMetadata} using
+ * the study path as a string. This will return a {@link ReadStudyMetadata.Result}. You can fetch
+ * the successful calls using getReadResponse(), and any failed reads using getFailedReads().
  *
  * <h3>Example</h3>
  *
@@ -53,149 +52,147 @@ import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.Immutabl
  */
 public class DicomIO {
 
-    /**
-     * Creates a new ReadStudyMetadata object.
-     * @return ReadStudyMetadata.
-     */
-    public static ReadStudyMetadata readStudyMetadata() {
-        return new ReadStudyMetadata();
+  /**
+   * Creates a new ReadStudyMetadata object.
+   *
+   * @return ReadStudyMetadata.
+   */
+  public static ReadStudyMetadata readStudyMetadata() {
+    return new ReadStudyMetadata();
+  }
+
+  /**
+   * This class makes a call to the retrieve metadata endpoint
+   * (https://cloud.google.com/healthcare/docs/how-tos/dicomweb#retrieving_metadata). It defines a
+   * function that can be used to process a Pubsub message from a DICOM store, read the DICOM study
+   * path and get the metadata of the specified study. You can learn how to configure PubSub
+   * messages to be published when an instance is stored by following:
+   * https://cloud.google.com/healthcare/docs/how-tos/pubsub. The connector will output a {@link
+   * ReadStudyMetadata.Result} which will contain metadata of the study encoded as a json array.
+   */
+  public static class ReadStudyMetadata
+      extends PTransform<PCollection<String>, ReadStudyMetadata.Result> {
+
+    private ReadStudyMetadata() {}
+
+    /** TupleTag for the main output. */
+    public static final TupleTag<String> METADATA = new TupleTag<String>() {};
+    /** TupleTag for any error response. */
+    public static final TupleTag<String> ERROR_MESSAGE = new TupleTag<String>() {};
+
+    /** The output object of the {@link ReadStudyMetadata} transformation. */
+    public static class Result implements POutput, PInput {
+      private PCollection<String> readResponse;
+
+      private PCollection<String> failedReads;
+
+      /** Contains both the response and error outputs from the transformation. */
+      PCollectionTuple pct;
+
+      /**
+       * Create DicomIO.ReadStudyMetadata.Result from PCollectionTuple which contains the response
+       * (with METADATA and ERROR_MESSAGE tags).
+       *
+       * @param pct the pct
+       * @return the read result
+       * @throws IllegalArgumentException the illegal argument exception
+       */
+      static ReadStudyMetadata.Result of(PCollectionTuple pct) throws IllegalArgumentException {
+        if (pct.getAll()
+            .keySet()
+            .containsAll((Collection<?>) TupleTagList.of(METADATA).and(ERROR_MESSAGE))) {
+          return new ReadStudyMetadata.Result(pct);
+        } else {
+          throw new IllegalArgumentException(
+              "The PCollection tuple must have the "
+                  + "DicomIO.ReadStudyMetadata.METADATA"
+                  + "and DicomIO.ReadStudyMetadata.ERROR_MESSAGE tuple tags");
+        }
+      }
+
+      private Result(PCollectionTuple pct) {
+        this.pct = pct;
+        this.readResponse = pct.get(METADATA);
+        this.failedReads = pct.get(ERROR_MESSAGE);
+      }
+
+      /**
+       * Gets failed reads.
+       *
+       * @return the failed reads
+       */
+      public PCollection<String> getFailedReads() {
+        return failedReads;
+      }
+
+      /**
+       * Gets the read metadata of the resource.
+       *
+       * @return the resources
+       */
+      public PCollection<String> getReadResponse() {
+        return readResponse;
+      }
+
+      @Override
+      public Pipeline getPipeline() {
+        return this.pct.getPipeline();
+      }
+
+      @Override
+      public Map<TupleTag<?>, PValue> expand() {
+        return ImmutableMap.of(METADATA, readResponse);
+      }
+
+      @Override
+      public void finishSpecifyingOutput(
+          String transformName, PInput input, PTransform<?, ?> transform) {}
     }
 
     /**
-     * This class makes a call to the retrieve metadata endpoint
-     * (https://cloud.google.com/healthcare/docs/how-tos/dicomweb#retrieving_metadata). It defines
-     * a function that can be used to process a Pubsub message from a DICOM store, read the DICOM
-     * study path and get the metadata of the specified study. You can learn how to configure
-     * PubSub messages to be published when an instance is stored by following:
-     * https://cloud.google.com/healthcare/docs/how-tos/pubsub. The connector will output a {@link
-     * ReadStudyMetadata.Result} which will contain metadata of the study encoded as a json array.
+     * DoFn to fetch the metadata of a study from a Dicom store based on it's location and study id.
      */
-    public static class ReadStudyMetadata
-            extends PTransform<PCollection<String>, ReadStudyMetadata.Result> {
+    static class FetchStudyMetadataFn extends DoFn<String, String> {
 
-        private ReadStudyMetadata() {}
+      private HealthcareApiClient dicomStore;
 
-        /** TupleTag for the main output. */
-        public static final TupleTag<String> METADATA = new TupleTag<String>() {};
-        /** TupleTag for any error response. */
-        public static final TupleTag<String> ERROR_MESSAGE = new TupleTag<String>() {};
+      /**
+       * Instantiate the healthcare client.
+       *
+       * @throws IOException
+       */
+      @Setup
+      public void newHealthcareClient() throws IOException {
+        this.dicomStore = new HttpHealthcareApiClient();
+      }
 
-        /**
-         * The output object of the {@link ReadStudyMetadata} transformation.
-         */
-        public static class Result implements POutput, PInput {
-            private PCollection<String> readResponse;
-
-            private PCollection<String> failedReads;
-
-            /** Contains both the response and error outputs from the transformation. */
-            PCollectionTuple pct;
-
-            /**
-             * Create DicomIO.ReadStudyMetadata.Result from PCollectionTuple which contains the response
-             * (with METADATA and ERROR_MESSAGE tags).
-             *
-             * @param pct the pct
-             * @return the read result
-             * @throws IllegalArgumentException the illegal argument exception
-             */
-            static ReadStudyMetadata.Result of(PCollectionTuple pct) throws IllegalArgumentException {
-                if (pct.getAll()
-                        .keySet()
-                        .containsAll((Collection<?>) TupleTagList.of(METADATA).and(ERROR_MESSAGE))) {
-                    return new ReadStudyMetadata.Result(pct);
-                } else {
-                    throw new IllegalArgumentException(
-                            "The PCollection tuple must have the " +
-                                    "DicomIO.ReadStudyMetadata.METADATA"
-                                    + "and DicomIO.ReadStudyMetadata.ERROR_MESSAGE tuple tags");
-                }
-            }
-
-            private Result(PCollectionTuple pct) {
-                this.pct = pct;
-                this.readResponse = pct.get(METADATA);
-                this.failedReads = pct.get(ERROR_MESSAGE);
-            }
-
-            /**
-             * Gets failed reads.
-             *
-             * @return the failed reads
-             */
-            public PCollection<String> getFailedReads() {
-                return failedReads;
-            }
-
-            /**
-             * Gets the read metadata of the resource.
-             *
-             * @return the resources
-             */
-            public PCollection<String> getReadResponse() {
-                return readResponse;
-            }
-
-            @Override
-            public Pipeline getPipeline() {
-                return this.pct.getPipeline();
-            }
-
-            @Override
-            public Map<TupleTag<?>, PValue> expand() {
-                return ImmutableMap.of(METADATA, readResponse);
-            }
-
-            @Override
-            public void finishSpecifyingOutput(
-                    String transformName, PInput input, PTransform<?, ?> transform) {}
+      /**
+       * Process The Pub/Sub message.
+       *
+       * @param context The input containing the pub/sub message
+       */
+      @ProcessElement
+      public void processElement(ProcessContext context) {
+        String dicomWebPath = context.element();
+        try {
+          // TODO Change to non-blocking async calls
+          String responseData = dicomStore.retrieveDicomStudyMetadata(dicomWebPath);
+          context.output(METADATA, responseData);
+        } catch (IOException e) {
+          String errorMessage = e.getMessage();
+          context.output(ERROR_MESSAGE, errorMessage);
         }
-
-        /**
-         * DoFn to fetch the metadata of a study from a Dicom store based on it's location and
-         * study id.
-         */
-        static class FetchStudyMetadataFn extends DoFn<String, String> {
-
-            private HealthcareApiClient dicomStore;
-
-            /**
-             * Instantiate the healthcare client.
-             *
-             * @throws IOException
-             */
-            @Setup
-            public void newHealthcareClient() throws IOException {
-                this.dicomStore = new HttpHealthcareApiClient();
-            }
-
-            /**
-             * Process The Pub/Sub message.
-             *
-             * @param context The input containing the pub/sub message
-             */
-            @ProcessElement
-            public void processElement(ProcessContext context) {
-                String dicomWebPath = context.element();
-                try {
-                    // TODO Change to non-blocking async calls
-                    String responseData = dicomStore.retrieveDicomStudyMetadata(dicomWebPath);
-                    context.output(METADATA, responseData);
-                } catch (IOException e) {
-                    String errorMessage = e.getMessage();
-                    context.output(ERROR_MESSAGE, errorMessage);
-                }
-            }
-        }
-
-        @Override
-        public ReadStudyMetadata.Result expand(PCollection<String> input) {
-            return new Result(
-                    input.apply(
-                            ParDo.of(new FetchStudyMetadataFn())
-                                    .withOutputTags(
-                                            ReadStudyMetadata.METADATA,
-                                            TupleTagList.of(ReadStudyMetadata.ERROR_MESSAGE))));
-        }
+      }
     }
+
+    @Override
+    public ReadStudyMetadata.Result expand(PCollection<String> input) {
+      return new Result(
+          input.apply(
+              ParDo.of(new FetchStudyMetadataFn())
+                  .withOutputTags(
+                      ReadStudyMetadata.METADATA,
+                      TupleTagList.of(ReadStudyMetadata.ERROR_MESSAGE))));
+    }
+  }
 }

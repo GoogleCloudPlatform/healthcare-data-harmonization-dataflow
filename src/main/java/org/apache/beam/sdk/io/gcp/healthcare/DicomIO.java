@@ -35,9 +35,10 @@ import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.Immutabl
  *
  * <h3>Reading Study-Level Metadata</h3>
  *
- * The study-level metadata for a dicom instance can be read with {@link ReadStudyMetadata} using the study path as a
- * string. This will return a {@link ReadStudyMetadata.Result}. You can fetch the successful calls using
- * getReadResponse(), and any failed reads using getFailedReads().
+ * The study-level metadata for a dicom instance can be read with {@link ReadStudyMetadata}
+ * using the study path as a string. This will return a {@link ReadStudyMetadata.Result}.
+ * You can fetch the successful calls using getReadResponse(), and any failed reads
+ * using getFailedReads().
  *
  * <h3>Example</h3>
  *
@@ -62,10 +63,10 @@ public class DicomIO {
 
     /**
      * This class makes a call to the retrieve metadata endpoint
-     * (https://cloud.google.com/healthcare/docs/how-tos/dicomweb#retrieving_metadata). It defines a
-     * function that can be used to process a Pubsub message from a DICOM store, read the DICOM study
-     * path and get the metadata of the specified study. You can learn how to configure PubSub
-     * messages to be published when an instance is stored by following:
+     * (https://cloud.google.com/healthcare/docs/how-tos/dicomweb#retrieving_metadata). It defines
+     * a function that can be used to process a Pubsub message from a DICOM store, read the DICOM
+     * study path and get the metadata of the specified study. You can learn how to configure
+     * PubSub messages to be published when an instance is stored by following:
      * https://cloud.google.com/healthcare/docs/how-tos/pubsub. The connector will output a {@link
      * ReadStudyMetadata.Result} which will contain metadata of the study encoded as a json array.
      */
@@ -105,7 +106,8 @@ public class DicomIO {
                     return new ReadStudyMetadata.Result(pct);
                 } else {
                     throw new IllegalArgumentException(
-                            "The PCollection tuple must have the DicomIO.ReadStudyMetadata.METADATA "
+                            "The PCollection tuple must have the " +
+                                    "DicomIO.ReadStudyMetadata.METADATA"
                                     + "and DicomIO.ReadStudyMetadata.ERROR_MESSAGE tuple tags");
                 }
             }
@@ -150,7 +152,8 @@ public class DicomIO {
         }
 
         /**
-         * DoFn to fetch the metadata of a study from a Dicom store based on it's location and study id.
+         * DoFn to fetch the metadata of a study from a Dicom store based on it's location and
+         * study id.
          */
         static class FetchStudyMetadataFn extends DoFn<String, String> {
 

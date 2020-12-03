@@ -21,14 +21,17 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.healthcare.v1beta1.CloudHealthcare;
-import com.google.api.services.healthcare.v1beta1.CloudHealthcare.Projects.Locations.Datasets.FhirStores.Fhir.Search;
-import com.google.api.services.healthcare.v1beta1.CloudHealthcare.Projects.Locations.Datasets.Hl7V2Stores.Messages;
+import com.google.api.services.healthcare.v1beta1.CloudHealthcare.Projects.Locations.Datasets
+        .FhirStores.Fhir.Search;
+import com.google.api.services.healthcare.v1beta1.CloudHealthcare.Projects.Locations.Datasets
+        .Hl7V2Stores.Messages;
 import com.google.api.services.healthcare.v1beta1.CloudHealthcareScopes;
 import com.google.api.services.healthcare.v1beta1.model.CreateMessageRequest;
 import com.google.api.services.healthcare.v1beta1.model.DicomStore;
 import com.google.api.services.healthcare.v1beta1.model.Empty;
 import com.google.api.services.healthcare.v1beta1.model.FhirStore;
-import com.google.api.services.healthcare.v1beta1.model.GoogleCloudHealthcareV1beta1FhirRestGcsSource;
+import com.google.api.services.healthcare.v1beta1.model
+        .GoogleCloudHealthcareV1beta1FhirRestGcsSource;
 import com.google.api.services.healthcare.v1beta1.model.Hl7V2Store;
 import com.google.api.services.healthcare.v1beta1.model.HttpBody;
 import com.google.api.services.healthcare.v1beta1.model.ImportResourcesRequest;
@@ -160,7 +163,8 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
   }
 
   @Override
-  public FhirStore createFhirStore(String dataset, String name, String version) throws IOException {
+  public FhirStore createFhirStore(String dataset, String name, String version)
+          throws IOException {
     return createFhirStore(dataset, name, version, null);
   }
 
@@ -517,7 +521,8 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
     credentials.refreshIfExpired();
     String payload = GSON.toJson(
         new ExportMessagesRequest(start, end,
-            new ExportMessagesRequest.GcsDestination(gcsPrefix, "FULL", "MESSAGE_JSON")));
+            new ExportMessagesRequest.GcsDestination(gcsPrefix, "FULL",
+                    "MESSAGE_JSON")));
     StringEntity entity = new StringEntity(payload);
     URI uri;
     try {

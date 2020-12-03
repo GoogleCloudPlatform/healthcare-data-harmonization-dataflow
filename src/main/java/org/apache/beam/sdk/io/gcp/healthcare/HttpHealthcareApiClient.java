@@ -283,7 +283,8 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
       return Instant.ofEpochMilli(0);
     }
     // sendTime is conveniently RFC3339 UTC "Zulu"
-    // https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/projects.locations.datasets.hl7V2Stores.messages#Message
+    // https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/projects.
+            // locations.datasets.hl7V2Stores.messages#Message
     return Instant.parse(sendTime);
   }
 
@@ -319,7 +320,8 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
       return Instant.now();
     }
     // sendTime is conveniently RFC3339 UTC "Zulu"
-    // https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/projects.locations.datasets.hl7V2Stores.messages#Message
+    // https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/
+          // projects.locations.datasets.hl7V2Stores.messages#Message
     return Instant.parse(sendTime);
   }
 
@@ -693,7 +695,8 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
             .setApplicationName("apache-beam-hl7v2-io")
             .build();
     httpClient =
-        HttpClients.custom().setRetryHandler(new DefaultHttpRequestRetryHandler(10, false)).build();
+        HttpClients.custom().setRetryHandler(new DefaultHttpRequestRetryHandler(10,
+                false)).build();
   }
 
   public static class HL7v2MessagePages implements Iterable<List<HL7v2Message>> {

@@ -71,7 +71,8 @@ public class Hl7v2ToFhirStreamingRunner {
     @Description(
         "The path to the mapping configurations. The path will be treated as a GCS path if the"
             + " path starts with the GCS scheme (\"gs\"), otherwise a local file. Please see: "
-            + "https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/blob/baa4e0c7849413f7b44505a8410ee7f52745427a/mapping_configs/README.md"
+            + "https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/blob/" +
+                "baa4e0c7849413f7b44505a8410ee7f52745427a/mapping_configs/README.md"
             + " for more details on the mapping configuration structure.")
     @Required
     String getMappingPath();

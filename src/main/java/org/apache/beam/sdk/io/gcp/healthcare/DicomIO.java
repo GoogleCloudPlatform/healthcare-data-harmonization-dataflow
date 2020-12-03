@@ -1,4 +1,4 @@
-// Copyright {current year} Google LLC.
+// Copyright 2020 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,9 +35,9 @@ import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.Immutabl
  *
  * <h3>Reading Study-Level Metadata</h3>
  *
- * The study-level metadata for a dicom instance can be read with {@link ReadStudyMetadata} using the study path as a string.
- * This will return a {@link ReadStudyMetadata.Result}. You can fetch the successful calls using getReadResponse(), and
- * any failed reads using getFailedReads().
+ * The study-level metadata for a dicom instance can be read with {@link ReadStudyMetadata} using the study path as a
+ * string. This will return a {@link ReadStudyMetadata.Result}. You can fetch the successful calls using
+ * getReadResponse(), and any failed reads using getFailedReads().
  *
  * <h3>Example</h3>
  *
@@ -52,6 +52,10 @@ import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.collect.Immutabl
  */
 public class DicomIO {
 
+    /**
+     * Creates a new ReadStudyMetadata object.
+     * @return ReadStudyMetadata.
+     */
     public static ReadStudyMetadata readStudyMetadata() {
         return new ReadStudyMetadata();
     }
@@ -75,6 +79,9 @@ public class DicomIO {
         /** TupleTag for any error response. */
         public static final TupleTag<String> ERROR_MESSAGE = new TupleTag<String>() {};
 
+        /**
+         * The output object of the {@link ReadStudyMetadata} transformation.
+         */
         public static class Result implements POutput, PInput {
             private PCollection<String> readResponse;
 

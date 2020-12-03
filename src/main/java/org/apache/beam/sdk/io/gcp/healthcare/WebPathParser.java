@@ -1,4 +1,4 @@
-// Copyright {current year} Google LLC.
+// Copyright 2020 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,8 +13,15 @@
 // limitations under the License.
 package org.apache.beam.sdk.io.gcp.healthcare;
 
-public class WebPathParser {
+import java.io.IOException;
 
+/**
+ * A utility class to aid in the parsing of Healthcare API webpaths.
+ */
+public class WebPathParser {
+    /**
+     * An object that holds DICOM webpath components.
+     */
     public static class DicomWebPath {
         public String studyId;
         public String seriesId;
@@ -27,6 +34,12 @@ public class WebPathParser {
     }
 
     public DicomWebPath parseDicomWebpath(String unparsedWebpath) throws IllegalArgumentException {
+    /**
+     * Resolves a string webpath into a DicomWebPath object.
+     * @param unparsedWebpath The webpath as a raw string.
+     * @return A parsed DicomWebPath Object.
+     * @throws IOException
+     */
         String[] webPathSplit = unparsedWebpath.split("/dicomWeb/");
 
         if (webPathSplit.length != 2) {

@@ -1,4 +1,4 @@
-// Copyright {current year} Google LLC.
+// Copyright 2020 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,14 +13,18 @@
 // limitations under the License.
 package org.apache.beam.sdk.io.gcp.healthcare;
 
+import java.io.IOException;
+
+import org.apache.beam.sdk.io.gcp.healthcare.WebPathParser;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.IOException;
-
+/**
+ * Testing the Healthcare API webpath parser.
+ */
 @RunWith(JUnit4.class)
 public class WebPathParserTest {
     private WebPathParser webPathParser;
@@ -44,7 +48,8 @@ public class WebPathParserTest {
         Assert.assertEquals("abc", dicomWebPath.studyId);
         Assert.assertEquals("xyz", dicomWebPath.seriesId);
         Assert.assertEquals("123", dicomWebPath.instanceId);
-        Assert.assertEquals("projects/foo/location/earth/datasets/bar/dicomStores/fee", dicomWebPath.dicomStorePath);
+        Assert.assertEquals("projects/foo/location/earth/datasets/bar/dicomStores/fee",
+                dicomWebPath.dicomStorePath);
     }
 
     @Test

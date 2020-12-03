@@ -1,4 +1,4 @@
-// Copyright {current year} Google LLC.
+// Copyright 2020 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,9 @@ import org.apache.beam.sdk.values.PCollection;
 import org.junit.Test;
 import org.junit.Rule;
 
+/**
+ * Testing the ability of this DoFn to extract the webpath of a DICOM instance from the PubSub message.
+ */
 public class ExtractWebpathFromPubsubTest {
     @Rule public final transient TestPipeline pipeline = TestPipeline.create();
 

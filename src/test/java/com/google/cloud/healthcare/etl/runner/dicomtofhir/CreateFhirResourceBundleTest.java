@@ -1,4 +1,4 @@
-// Copyright {current year} Google LLC.
+// Copyright 2020 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,9 @@ import org.apache.beam.sdk.values.PCollection;
 import org.junit.Rule;
 import org.junit.Test;
 
+/**
+ * Testing the class's ability to generate a FHIR resource of type "Bundle" as a json string.
+ */
 public class CreateFhirResourceBundleTest {
 
     private final String fhirResource = "{\"resourceType\": \"ImagingStudy\"}";

@@ -73,7 +73,9 @@ public class DicomToFhirStreamingRunner {
 
         @Description("The path to the mapping configurations. The path will be treated as a GCS path if the " +
                 "path starts with the GCS scheme (\"gs\"), otherwise a local file. Please see: " +
-                "https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/blob/baa4e0c7849413f7b44505a8410ee7f52745427a/mapping_configs/README.md for more details on the mapping configuration structure.")
+                "https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/blob/" +
+                "baa4e0c7849413f7b44505a8410ee7f52745427a/mapping_configs/README.md " +
+                "for more details on the mapping configuration structure.")
         @Required
         String getMappingPath();
 
@@ -107,7 +109,7 @@ public class DicomToFhirStreamingRunner {
         void setMappingErrorPath(String mappingErrorPath);
 
         @Description("The number of shards when writing errors to GCS.")
-        @Default.Integer(10)
+        @Default.Integer(1)
         Integer getErrorLogShardNum();
         void setErrorLogShardNum(Integer shardNum);
     }
@@ -117,7 +119,8 @@ public class DicomToFhirStreamingRunner {
      */
     static class ExtractWebpathFromPubsub extends DoFn<PubsubMessage, String> {
         @ProcessElement
-        public void processElement(DoFn<PubsubMessage, String>.ProcessContext context) throws UnsupportedEncodingException {
+        public void processElement(DoFn<PubsubMessage, String>.ProcessContext context)
+                throws UnsupportedEncodingException {
             PubsubMessage msg = context.element();
             String webpath = new String(msg.getPayload(), StandardCharsets.UTF_8);
             context.output(webpath);
@@ -125,8 +128,8 @@ public class DicomToFhirStreamingRunner {
     }
 
     /**
-     * A DoFn that will take the response of the Study Metadata Read call from the DICOM API and reformat it into an
-     * input to be consumed by the mapping library.
+     * A DoFn that will take the response of the Study Metadata Read call from the DICOM API and reformat it to be
+     * consumed by the mapping library.
      */
     static class CreateMappingFnInput extends DoFn<String, String> {
         public static final Gson gson = new Gson();
@@ -213,7 +216,8 @@ public class DicomToFhirStreamingRunner {
      * @param options The pipeline configuration.
      * @return A PCollection of String containing successfully mapped FHIR resources.
      */
-    private PCollection<String> mapDicomStudyMetadataToFhirResource(PCollection<String> studyMetadata, Options options) {
+    private PCollection<String> mapDicomStudyMetadataToFhirResource(PCollection<String> studyMetadata,
+                                                                    Options options) {
         MappingFn<HclsApiDicomMappableMessage> mappingFn = MappingFn.of(options.getMappingPath());
 
         PCollectionTuple mapDicomStudyToFhirBundleRequest = studyMetadata

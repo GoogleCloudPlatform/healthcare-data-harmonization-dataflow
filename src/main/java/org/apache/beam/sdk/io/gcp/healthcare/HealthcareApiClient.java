@@ -13,6 +13,7 @@
 // limitations under the License.
 package org.apache.beam.sdk.io.gcp.healthcare;
 
+import com.google.api.services.healthcare.v1beta1.model.DicomStore;
 import com.google.api.services.healthcare.v1beta1.model.Empty;
 import com.google.api.services.healthcare.v1beta1.model.FhirStore;
 import com.google.api.services.healthcare.v1beta1.model.Hl7V2Store;
@@ -199,4 +200,32 @@ public interface HealthcareApiClient {
   Empty deleteHL7v2Store(String store) throws IOException;
 
   Empty deleteFhirStore(String store) throws IOException;
+
+
+  /**
+   * Retrieve metadata of a study in a dicom Store
+   * @param dicomWebPath the full path of the study
+   * @return the metadata of the study as a json string
+   * @throws IOException the io exception
+   */
+  String retrieveDicomStudyMetadata(String dicomWebPath) throws IOException;
+
+  /**
+   * Create a DICOM store in the given dataset
+   * @param dataset the dataset in which to create the store
+   * @param name the store id of the new dataset
+   * @return the DICOM store object
+   * @throws IOException
+   */
+  DicomStore createDicomStore(String dataset, String name) throws IOException;
+
+  /**
+   * Create a DICOM store in the given dataset
+   * @param dataset the dataset in which to create the store
+   * @param name the store id of the new DICOM store
+   * @param pubsubTopic the PubSub topic to broadcast to when inserting an instance
+   * @return the DICOM store object
+   * @throws IOException
+   */
+  DicomStore createDicomStore(String dataset, String name, String pubsubTopic) throws IOException;
 }

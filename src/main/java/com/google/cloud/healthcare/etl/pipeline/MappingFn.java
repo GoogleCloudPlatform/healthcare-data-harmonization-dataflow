@@ -14,9 +14,6 @@
 
 package com.google.cloud.healthcare.etl.pipeline;
 
-import static com.google.cloud.healthcare.etl.model.ErrorEntry.ERROR_ENTRY_TAG;
-
-import com.google.cloud.healthcare.etl.model.ErrorEntry;
 import com.google.cloud.healthcare.etl.model.mapping.Mappable;
 import com.google.cloud.healthcare.etl.model.mapping.MappedFhirMessageWithSourceTime;
 import com.google.cloud.healthcare.etl.model.mapping.MappingOutput;
@@ -27,6 +24,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -34,7 +32,6 @@ import org.apache.beam.sdk.metrics.Distribution;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.options.ValueProvider.StaticValueProvider;
-import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Strings;
 import org.slf4j.Logger;
@@ -44,7 +41,7 @@ import org.slf4j.LoggerFactory;
  * The core function of the mapping pipeline. Input is expected to be a parsed message. At this
  * moment, only higher level language (whistle) is supported.
  */
-public class MappingFn<M extends Mappable> extends DoFn<M, MappingOutput> {
+public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOutput> {
   // TODO(b/173141038): refactor the class for capturing performance metrics better.
   private static final Logger LOGGER = LoggerFactory.getLogger(MappingFn.class);
   public static final TupleTag<MappingOutput> MAPPING_TAG = new TupleTag<>("mapping");
@@ -137,34 +134,31 @@ public class MappingFn<M extends Mappable> extends DoFn<M, MappingOutput> {
     }
   }
 
-  @ProcessElement
-  public void process(ProcessContext ctx) {
-    M input = ctx.element();
-    try {
-      ctx.output(
-          runAndReportMetrics(
-              transformMetrics,
-              () -> {
-                String transformedData = engine.transform(input.getData());
-                return (enablePerformanceMetrics)
-                    ? new MappedFhirMessageWithSourceTime(
-                        transformedData, input.getCreateTime().get())
-                    : new MappedFhirMessageWithSourceTime(transformedData);
-              }));
-    } catch (RuntimeException e) {
-      ErrorEntry entry = ErrorEntry.of(e).setStep(getClass().getSimpleName());
-      if (input.getId() != null) {
-        entry.setSources(Collections.singletonList(input.getId()));
-      }
-      ctx.output(ERROR_ENTRY_TAG, entry);
-    }
-  }
-
   // Runs a lambda and collects the metrics.
   private static <T> T runAndReportMetrics(Distribution metrics, Supplier<T> supplier) {
     Instant start = Instant.now();
     T result = supplier.get();
     metrics.update(Instant.now().toEpochMilli() - start.toEpochMilli());
     return result;
+  }
+
+  @Override
+  public void process(ProcessContext ctx) {
+    M input = ctx.element();
+    ctx.output(
+        runAndReportMetrics(
+            transformMetrics,
+            () -> {
+              String transformedData = engine.transform(input.getData());
+              return (enablePerformanceMetrics)
+                  ? new MappedFhirMessageWithSourceTime(
+                      transformedData, input.getCreateTime().get())
+                  : new MappedFhirMessageWithSourceTime(transformedData);
+            }));
+  }
+
+  @Override
+  protected List<String> getSources(M input) {
+    return Collections.singletonList(input.getId());
   }
 }

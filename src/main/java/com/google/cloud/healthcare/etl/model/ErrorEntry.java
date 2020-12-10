@@ -30,13 +30,16 @@ public class ErrorEntry implements Serializable {
   public static final TupleTag<ErrorEntry> ERROR_ENTRY_TAG = new TupleTag<ErrorEntry>("errors") {};
   public static final Coder<ErrorEntry> CODER = new ErrorEntryCoder();
 
+  private String errorResource;
   private String stackTrace;
   private String errorMessage;
   private String timestamp;
   private String step;
   private List<String> sources;
 
-  protected ErrorEntry(String errorMessage, String stackTrace, String timestamp) {
+  protected ErrorEntry(
+      String errorResource, String errorMessage, String stackTrace, String timestamp) {
+    this.errorResource = errorResource;
     this.stackTrace = stackTrace;
     this.errorMessage = errorMessage;
     this.timestamp = timestamp;
@@ -47,17 +50,28 @@ public class ErrorEntry implements Serializable {
    * event based on the default system clock.
    */
   public static ErrorEntry of(Throwable t) {
-    return of(t, Clock.systemDefaultZone());
+    return of(t, "", Clock.systemDefaultZone());
+  }
+
+  /**
+   * Creates an {@link ErrorEntry} from a {@link Throwable}, with the resource that caused the
+   * error, and records the occurring time of the event based on the default system clock.
+   */
+  public static ErrorEntry of(Throwable t, String errorResource) {
+    return of(t, errorResource, Clock.systemDefaultZone());
   }
 
   /**
    * Creates an {@link ErrorEntry} from a {@link Throwable}, and records the occuring time of the
    * event based on the {@code clock}.
    */
-  public static ErrorEntry of(Throwable t, Clock clock) {
+  public static ErrorEntry of(Throwable t, String errorResource, Clock clock) {
     StringWriter stringWriter = new StringWriter();
     t.printStackTrace(new PrintWriter(stringWriter));
-    return new ErrorEntry(t.getMessage(), stringWriter.toString(),
+    return new ErrorEntry(
+        errorResource,
+        t.getMessage(),
+        stringWriter.toString(),
         ZonedDateTime.now(clock).format(DateTimeFormatter.ISO_DATE_TIME));
   }
 
@@ -69,6 +83,10 @@ public class ErrorEntry implements Serializable {
   public ErrorEntry setSources(List<String> sources) {
     this.sources = sources;
     return this;
+  }
+
+  public String getErrorResource() {
+    return errorResource;
   }
 
   public List<String> getSources() {

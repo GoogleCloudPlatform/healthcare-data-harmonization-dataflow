@@ -30,7 +30,9 @@ public class ErrorEntryCoder extends CustomCoder<ErrorEntry> {
   private static IterableCoder<String> LIST_CODER = IterableCoder.of(STRING_CODER);
 
   @Override
-  public void encode(ErrorEntry value, OutputStream outStream) throws CoderException, IOException {
+  public void encode(ErrorEntry value, OutputStream outStream)
+      throws CoderException, IOException {
+    STRING_CODER.encode(value.getErrorResource(), outStream);
     STRING_CODER.encode(value.getStackTrace(), outStream);
     STRING_CODER.encode(value.getErrorMessage(), outStream);
     STRING_CODER.encode(value.getTimestamp(), outStream);
@@ -40,11 +42,14 @@ public class ErrorEntryCoder extends CustomCoder<ErrorEntry> {
 
   @Override
   public ErrorEntry decode(InputStream inStream) throws CoderException, IOException {
+    String errorResource = STRING_CODER.decode(inStream);
     String stackTrace = STRING_CODER.decode(inStream);
     String errorMessage = STRING_CODER.decode(inStream);
     String timestamp = STRING_CODER.decode(inStream);
     String step = STRING_CODER.decode(inStream);
     List<String> sources = Lists.newArrayList(LIST_CODER.decode(inStream));
-    return new ErrorEntry(errorMessage, stackTrace, timestamp).setStep(step).setSources(sources);
+    return new ErrorEntry(errorResource, errorMessage, stackTrace, timestamp)
+        .setStep(step)
+        .setSources(sources);
   }
 }

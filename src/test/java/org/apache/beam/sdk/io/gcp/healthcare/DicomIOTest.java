@@ -13,8 +13,6 @@
 // limitations under the License.
 package org.apache.beam.sdk.io.gcp.healthcare;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.Create;

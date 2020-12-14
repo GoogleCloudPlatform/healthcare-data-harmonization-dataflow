@@ -27,7 +27,8 @@ public class WebPathParserTest {
 
     @Test
     public void test_parsedAllElements() throws IOException {
-        String webpathStr = "projects/foo/location/earth/datasets/bar/dicomStores/fee/dicomWeb/studies/abc/series/xyz/instances/123";
+        String webpathStr = "projects/foo/location/earth/datasets/bar/dicomStores/" +
+                "fee/dicomWeb/studies/abc/series/xyz/instances/123";
 
         WebPathParser parser = new WebPathParser();
         WebPathParser.DicomWebPath dicomWebPath = parser.parseDicomWebpath(webpathStr);

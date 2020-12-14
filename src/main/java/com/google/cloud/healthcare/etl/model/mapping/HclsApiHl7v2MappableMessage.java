@@ -13,25 +13,46 @@
 // limitations under the License.
 package com.google.cloud.healthcare.etl.model.mapping;
 
+import java.util.Optional;
+import javax.annotation.Nullable;
 import org.apache.beam.sdk.io.gcp.healthcare.HL7v2Message;
+import org.joda.time.Instant;
 
 /**
  * Represents an HL7v2 message from the HCLS API for mapping. The ID is the resource name of the
- * HL7v2 message in the original HL7v2 store. This class doesn't wrap the original
- * {@link HL7v2Message} but keeps useful fields only to keep memory usage low.
+ * HL7v2 message in the original HL7v2 store. This class doesn't wrap the original {@link
+ * HL7v2Message} but keeps useful fields only to keep memory usage low.
  */
 public class HclsApiHl7v2MappableMessage implements Mappable {
 
   private final String name;
   private final String schematizedData;
+  @Nullable private Instant createTime;
 
   public HclsApiHl7v2MappableMessage(String name, String schematizedData) {
     this.name = name;
     this.schematizedData = schematizedData;
   }
 
+  public HclsApiHl7v2MappableMessage(String name, String schematizedData, String createTime) {
+    this.name = name;
+    this.schematizedData = schematizedData;
+    this.createTime = Instant.parse(createTime);
+  }
+
+  public HclsApiHl7v2MappableMessage(String name, String schematizedData, Instant createTime) {
+    this.name = name;
+    this.schematizedData = schematizedData;
+    this.createTime = createTime;
+  }
+
   public static HclsApiHl7v2MappableMessage from(HL7v2Message message) {
     return new HclsApiHl7v2MappableMessage(message.getName(), message.getSchematizedData());
+  }
+
+  public static HclsApiHl7v2MappableMessage fromWithCreateTime(HL7v2Message message) {
+    return new HclsApiHl7v2MappableMessage(
+        message.getName(), message.getSchematizedData(), message.getCreateTime());
   }
 
   @Override
@@ -42,5 +63,10 @@ public class HclsApiHl7v2MappableMessage implements Mappable {
   @Override
   public String getData() {
     return schematizedData;
+  }
+
+  @Override
+  public Optional<Instant> getCreateTime() {
+    return Optional.ofNullable(createTime);
   }
 }

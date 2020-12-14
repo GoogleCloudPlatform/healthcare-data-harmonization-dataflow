@@ -14,10 +14,7 @@
 package org.apache.beam.sdk.io.gcp.healthcare;
 
 import java.io.IOException;
-
-import org.apache.beam.sdk.io.gcp.healthcare.WebPathParser;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,18 +24,13 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class WebPathParserTest {
-    private WebPathParser webPathParser;
-
-    @Before
-    public void createWebParser() {
-        webPathParser = new WebPathParser();
-    }
 
     @Test
-    public void test_parsedAllElements() throws IllegalArgumentException {
+    public void test_parsedAllElements() throws IOException {
         String webpathStr = "projects/foo/location/earth/datasets/bar/dicomStores/fee/dicomWeb/studies/abc/series/xyz/instances/123";
 
-        WebPathParser.DicomWebPath dicomWebPath = webPathParser.parseDicomWebpath(webpathStr);
+        WebPathParser parser = new WebPathParser();
+        WebPathParser.DicomWebPath dicomWebPath = parser.parseDicomWebpath(webpathStr);
 
         Assert.assertNotNull(dicomWebPath);
         Assert.assertEquals("foo", dicomWebPath.project);
@@ -50,28 +42,5 @@ public class WebPathParserTest {
         Assert.assertEquals("123", dicomWebPath.instanceId);
         Assert.assertEquals("projects/foo/location/earth/datasets/bar/dicomStores/fee",
                 dicomWebPath.dicomStorePath);
-    }
-
-    @Test
-    public void test_nonDicomWebpath() {
-        String webpathStr = "foo/notADicomStore/bar";
-
-        try {
-            webPathParser.parseDicomWebpath(webpathStr);
-            throw new AssertionError("WebPathParser incorrectly did not throw error");
-        } catch (IllegalArgumentException e) {
-            //
-        }
-    }
-
-    @Test
-    public void test_webPathTooLong() {
-        String webpathStr = "projects/foo/location/earth/mars/datasets/bar/bam/" +
-                "dicomStores/fee/dicomWeb/studies/abc/efg/series/xyz/instances/123/";
-
-        WebPathParser.DicomWebPath dicomWebPath = webPathParser.parseDicomWebpath(webpathStr);
-
-        Assert.assertNotEquals("bar", dicomWebPath.dataset);
-        Assert.assertNotEquals("xyz", dicomWebPath.seriesId);
     }
 }

@@ -17,21 +17,27 @@ package com.google.cloud.healthcare.etl.pipeline;
 import static com.google.cloud.healthcare.etl.model.ErrorEntry.ERROR_ENTRY_TAG;
 
 import com.google.cloud.healthcare.etl.model.ErrorEntry;
+import java.util.Collections;
+import java.util.List;
 import org.apache.beam.sdk.transforms.DoFn;
 
 /**
  * This is a base {@link DoFn} class with error reporting enabled automatically, classes which
- * inherit from this class can choose what kind of errors are recoverable, and thus not crashing
- * the whole pipeline. All exceptions will be logged to a separate dataset.
+ * inherit from this class can choose what kind of errors are recoverable, and thus not crashing the
+ * whole pipeline. All exceptions will be logged to a separate dataset.
  */
 public abstract class ErrorEnabledDoFn<Input, Output> extends DoFn<Input, Output> {
-
   @ProcessElement
   public void output(ProcessContext ctx) throws Exception {
+    Input input = ctx.element();
     try {
-      ctx.output(process(ctx.element()));
+      process(ctx);
     } catch (RuntimeException e) {
-      ctx.output(ERROR_ENTRY_TAG, ErrorEntry.of(e).setStep(getClass().getSimpleName()));
+      ErrorEntry error =
+          ErrorEntry.of(e, getErrorResource(input))
+              .setStep(getClass().getSimpleName())
+              .setSources(getSources(input));
+      ctx.output(ERROR_ENTRY_TAG, error);
       // Re-throw if it is not recoverable.
       if (!reportOnly(e)) {
         throw e;
@@ -39,8 +45,27 @@ public abstract class ErrorEnabledDoFn<Input, Output> extends DoFn<Input, Output
     }
   }
 
-  /** The main processing logic, the sub-class is expected to implement this method. */
-  public abstract Output process(Input input) throws Exception;
+  /**
+   * The main processing logic, the sub-class is expected to implement this method and
+   * output the results.
+   */
+  public abstract void process(ProcessContext ctx) throws Exception;
+
+  /**
+   * Defines how to extract the error resource for the ErrorEntry from the input.
+   * The default populate is empty, override this method to populate the ErrorEntry errorResource.
+   */
+  protected String getErrorResource(Input input) {
+    return "";
+  }
+
+  /**
+   * Defines how to extract the error source for the ErrorEntry from the input.
+   * The default populate is empty, override this method to populate the ErrorEntry sources.
+   */
+  protected List<String> getSources(Input input) {
+    return Collections.emptyList();
+  }
 
   /**
    * Check whether a {@link Throwable} is recoverable, i.e. the pipeline needs to report the error

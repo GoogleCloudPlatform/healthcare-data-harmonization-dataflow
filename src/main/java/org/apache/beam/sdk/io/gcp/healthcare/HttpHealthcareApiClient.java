@@ -90,8 +90,10 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
   private static final String FHIRSTORE_HEADER_ACCEPT = "application/fhir+json; charset=utf-8";
   private static final String FHIRSTORE_HEADER_ACCEPT_CHARSET = "utf-8";
   private static final Logger LOG = LoggerFactory.getLogger(HttpHealthcareApiClient.class);
-  private static final Gson GSON = new GsonBuilder()
-      .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES).create();
+  private static final Gson GSON =
+      new GsonBuilder()
+          .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+          .create();
   private transient CloudHealthcare client;
   private transient HttpClient httpClient;
   private transient GoogleCredentials credentials;
@@ -205,7 +207,6 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
 
     String searchQuery = String.format("studies/%s/metadata", parsedDicomWebPath.studyId);
 
-
     return makeRetrieveStudyMetadataRequest(parsedDicomWebPath.dicomStorePath, searchQuery);
   }
 
@@ -216,7 +217,7 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
 
   @Override
   public DicomStore createDicomStore(String dataset, String name, String pubsubTopic)
-          throws IOException {
+      throws IOException {
     DicomStore store = new DicomStore();
 
     if (pubsubTopic != null && pubsubTopic != "") {
@@ -226,29 +227,28 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
     }
 
     return client
+        .projects()
+        .locations()
+        .datasets()
+        .dicomStores()
+        .create(dataset, store)
+        .setDicomStoreId(name)
+        .execute();
+  }
+
+  private String makeRetrieveStudyMetadataRequest(String dicomStorePath, String searchQuery)
+      throws IOException {
+    CloudHealthcare.Projects.Locations.Datasets.DicomStores.Studies.RetrieveMetadata request =
+        this.client
             .projects()
             .locations()
             .datasets()
             .dicomStores()
-            .create(dataset, store)
-            .setDicomStoreId(name)
-            .execute();
-  }
-
-  private String makeRetrieveStudyMetadataRequest(String dicomStorePath, String searchQuery)
-          throws IOException {
-    CloudHealthcare.Projects.Locations.Datasets.DicomStores.Studies.RetrieveMetadata request =
-            this.client
-                    .projects()
-                    .locations()
-                    .datasets()
-                    .dicomStores()
-                    .studies()
-                    .retrieveMetadata(dicomStorePath, searchQuery);
+            .studies()
+            .retrieveMetadata(dicomStorePath, searchQuery);
 
     return request.executeUnparsed().parseAsString();
   }
-
 
   @Override
   public Instant getEarliestHL7v2SendTime(String hl7v2Store, @Nullable String filter)
@@ -283,7 +283,8 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
       return Instant.ofEpochMilli(0);
     }
     // sendTime is conveniently RFC3339 UTC "Zulu"
-    // https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/projects.locations.datasets.hl7V2Stores.messages#Message
+    // https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/projects.
+    // locations.datasets.hl7V2Stores.messages#Message
     return Instant.parse(sendTime);
   }
 
@@ -319,7 +320,8 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
       return Instant.now();
     }
     // sendTime is conveniently RFC3339 UTC "Zulu"
-    // https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/projects.locations.datasets.hl7V2Stores.messages#Message
+    // https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/
+    // projects.locations.datasets.hl7V2Stores.messages#Message
     return Instant.parse(sendTime);
   }
 
@@ -506,16 +508,20 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
   }
 
   @Override
-  public Operation exportHl7v2Messages(String hl7v2Store, String start, String end,
-      String gcsPrefix) throws IOException, HealthcareHttpException {
+  public Operation exportHl7v2Messages(
+      String hl7v2Store, String start, String end, String gcsPrefix)
+      throws IOException, HealthcareHttpException {
     if (httpClient == null || client == null) {
       initClient();
     }
 
     credentials.refreshIfExpired();
-    String payload = GSON.toJson(
-        new ExportMessagesRequest(start, end,
-            new ExportMessagesRequest.GcsDestination(gcsPrefix, "FULL", "MESSAGE_JSON")));
+    String payload =
+        GSON.toJson(
+            new ExportMessagesRequest(
+                start,
+                end,
+                new ExportMessagesRequest.GcsDestination(gcsPrefix, "FULL", "MESSAGE_JSON")));
     StringEntity entity = new StringEntity(payload);
     URI uri;
     try {
@@ -527,11 +533,7 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
       throw new IllegalArgumentException(e);
     }
 
-    HttpUriRequest request =
-        RequestBuilder.post()
-            .setUri(uri)
-            .setEntity(entity)
-            .build();
+    HttpUriRequest request = RequestBuilder.post().setUri(uri).setEntity(entity).build();
 
     HttpResponse response = httpClient.execute(request);
     HttpEntity responseEntity = response.getEntity();
@@ -627,18 +629,11 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
   }
 
   public HttpBody searchFhirResource(
-      String fhirStore,
-      String resourceType,
-      @Nullable Map<String, Object> parameters)
+      String fhirStore, String resourceType, @Nullable Map<String, Object> parameters)
       throws IOException {
     SearchResourcesRequest request = new SearchResourcesRequest().setResourceType(resourceType);
-    Search search = client
-        .projects()
-        .locations()
-        .datasets()
-        .fhirStores()
-        .fhir()
-        .search(fhirStore, request);
+    Search search =
+        client.projects().locations().datasets().fhirStores().fhir().search(fhirStore, request);
     if (parameters != null && !parameters.isEmpty()) {
       parameters.forEach(search::set);
     }

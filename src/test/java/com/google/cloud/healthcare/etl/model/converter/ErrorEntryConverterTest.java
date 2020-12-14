@@ -43,7 +43,8 @@ public class ErrorEntryConverterTest {
     Instant now = Instant.now();
     ZoneId zone = ZoneId.of(TORONTO_TIME_ZONE);
     ErrorEntry entry =
-        ErrorEntry.of(new IllegalArgumentException(MESSAGE), Clock.fixed(now, zone)).setStep(STEP);
+        ErrorEntry.of(new IllegalArgumentException(MESSAGE), "", Clock.fixed(now, zone))
+            .setStep(STEP);
     assertWithMessage("Mapped fields do not match.")
         .that(ErrorEntryConverter.toTableRow(entry).set(STACKTRACE_FIELD, ""))
         .isEqualTo(

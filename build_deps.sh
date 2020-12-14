@@ -43,7 +43,7 @@ readonly JNI_DIR="/usr/lib/jvm/java-8-openjdk-amd64/include"
 readonly JNI_DIR_LINUX="/usr/lib/jvm/java-8-openjdk-amd64/include/linux"
 
 # Data harmonization repo.
-readonly DH_REPO="${DH_REPO:-git@github.com:GoogleCloudPlatform/healthcare-data-harmonization.git}"
+readonly DH_REPO="${DH_REPO:-https://github.com/GoogleCloudPlatform/healthcare-data-harmonization.git}"
 
 if [[ ! -d "${JNI_DIR}" || ! -d "${JNI_DIR_LINUX}" ]]; then
   echo "Please make sure OpenJDK 8 is installed. On Debian/Ubuntu, run: sudo apt install openjdk-8-jdk"

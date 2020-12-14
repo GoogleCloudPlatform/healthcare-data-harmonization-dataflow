@@ -15,60 +15,57 @@ package org.apache.beam.sdk.io.gcp.healthcare;
 
 import java.io.IOException;
 
-/**
- * A utility class to aid in the parsing of Healthcare API webpaths.
- */
+/** A utility class to aid in the parsing of Healthcare API webpaths. */
 public class WebPathParser {
-    /**
-     * An object that holds DICOM webpath components.
-     */
-    public static class DicomWebPath {
-        public String studyId;
-        public String seriesId;
-        public String instanceId;
-        public String dicomStorePath;
-        public String project;
-        public String location;
-        public String dataset;
-        public String storeId;
+
+  /** An object that holds DICOM webpath components. */
+  public static class DicomWebPath {
+    public String studyId;
+    public String seriesId;
+    public String instanceId;
+    public String dicomStorePath;
+    public String project;
+    public String location;
+    public String dataset;
+    public String storeId;
+  }
+
+  /**
+   * Resolves a string webpath into a DicomWebPath object.
+   *
+   * @param unparsedWebpath The webpath as a raw string.
+   * @return A parsed DicomWebPath Object.
+   * @throws IOException
+   */
+  public DicomWebPath parseDicomWebpath(String unparsedWebpath) throws IOException {
+    String[] webPathSplit = unparsedWebpath.split("/dicomWeb/");
+
+    if (webPathSplit.length != 2) {
+      throw new IOException("Invalid DICOM web path");
     }
 
-    public DicomWebPath parseDicomWebpath(String unparsedWebpath) throws IllegalArgumentException {
-    /**
-     * Resolves a string webpath into a DicomWebPath object.
-     * @param unparsedWebpath The webpath as a raw string.
-     * @return A parsed DicomWebPath Object.
-     * @throws IOException
-     */
-        String[] webPathSplit = unparsedWebpath.split("/dicomWeb/");
+    DicomWebPath dicomWebPath = new DicomWebPath();
 
-        if (webPathSplit.length != 2) {
-            throw new IllegalArgumentException("Invalid DICOM web path");
-        }
+    dicomWebPath.dicomStorePath = webPathSplit[0];
+    String[] storePathElements = dicomWebPath.dicomStorePath.split("/");
 
-        DicomWebPath dicomWebPath = new DicomWebPath();
-
-        dicomWebPath.dicomStorePath = webPathSplit[0];
-        String[] storePathElements = dicomWebPath.dicomStorePath.split("/");
-
-        if (storePathElements.length < 8) {
-            throw new IllegalArgumentException("Invalid DICOM web path");
-        }
-        dicomWebPath.project = storePathElements[1];
-        dicomWebPath.location = storePathElements[3];
-        dicomWebPath.dataset = storePathElements[5];
-        dicomWebPath.storeId = storePathElements[7];
-
-        String[] searchParameters;
-        searchParameters = webPathSplit[1].split("/");
-        if (searchParameters.length < 6) {
-            throw new IllegalArgumentException("Invalid DICOM web path");
-        }
-        dicomWebPath.studyId = searchParameters[1];
-        dicomWebPath.seriesId = searchParameters[3];
-        dicomWebPath.instanceId = searchParameters[5];
-
-        return dicomWebPath;
+    if (storePathElements.length < 8) {
+      throw new IOException("Invalid DICOM web path");
     }
+    dicomWebPath.project = storePathElements[1];
+    dicomWebPath.location = storePathElements[3];
+    dicomWebPath.dataset = storePathElements[5];
+    dicomWebPath.storeId = storePathElements[7];
 
+    String[] searchParameters;
+    searchParameters = webPathSplit[1].split("/");
+    if (searchParameters.length < 6) {
+      throw new IOException("Invalid DICOM web path");
+    }
+    dicomWebPath.studyId = searchParameters[1];
+    dicomWebPath.seriesId = searchParameters[3];
+    dicomWebPath.instanceId = searchParameters[5];
+
+    return dicomWebPath;
+  }
 }

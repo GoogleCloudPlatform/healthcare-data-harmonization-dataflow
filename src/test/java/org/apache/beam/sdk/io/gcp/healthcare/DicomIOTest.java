@@ -24,13 +24,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+/**
+ * Test the DicomIO connector's ability to use the Healthcare API.
+ */
 @RunWith(JUnit4.class)
 public class DicomIOTest {
   @Rule public final transient TestPipeline pipeline = TestPipeline.create();
 
-  /**
-   * Testing the DicomIO's ability to read study metadata of an instance.
-   */
+  /** Testing the DicomIO's ability to read study metadata of an instance. */
   @Test
   public void test_Dicom_failedMetadataRead() {
     String badWebPath = "foo";
@@ -48,11 +49,5 @@ public class DicomIOTest {
             });
 
     pipeline.run();
-  }
-
-  private PubsubMessage createPubSubMessage(String webpath) {
-    byte[] badMessageBody;
-    badMessageBody = webpath.getBytes(UTF_8);
-    return new PubsubMessage(badMessageBody, null);
   }
 }

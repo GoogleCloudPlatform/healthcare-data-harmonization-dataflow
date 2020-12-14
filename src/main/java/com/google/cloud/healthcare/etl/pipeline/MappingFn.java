@@ -14,10 +14,9 @@
 
 package com.google.cloud.healthcare.etl.pipeline;
 
-import static com.google.cloud.healthcare.etl.model.ErrorEntry.ERROR_ENTRY_TAG;
-
-import com.google.cloud.healthcare.etl.model.ErrorEntry;
 import com.google.cloud.healthcare.etl.model.mapping.Mappable;
+import com.google.cloud.healthcare.etl.model.mapping.MappedFhirMessageWithSourceTime;
+import com.google.cloud.healthcare.etl.model.mapping.MappingOutput;
 import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProvider;
 import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProviderFactory;
 import com.google.cloud.healthcare.etl.util.library.TransformWrapper;
@@ -25,6 +24,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -32,7 +32,6 @@ import org.apache.beam.sdk.metrics.Distribution;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.options.ValueProvider;
 import org.apache.beam.sdk.options.ValueProvider.StaticValueProvider;
-import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Strings;
 import org.slf4j.Logger;
@@ -42,11 +41,11 @@ import org.slf4j.LoggerFactory;
  * The core function of the mapping pipeline. Input is expected to be a parsed message. At this
  * moment, only higher level language (whistle) is supported.
  */
-public class MappingFn<M extends Mappable> extends DoFn<M, String> {
+public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOutput> {
+  // TODO(b/173141038): refactor the class for capturing performance metrics better.
   private static final Logger LOGGER = LoggerFactory.getLogger(MappingFn.class);
-  public static final TupleTag<String> MAPPING_TAG = new TupleTag<>("mapping");
-  private final Distribution transformMetrics =
-      Metrics.distribution(MappingFn.class, "Transform");
+  public static final TupleTag<MappingOutput> MAPPING_TAG = new TupleTag<>("mapping");
+  private final Distribution transformMetrics = Metrics.distribution(MappingFn.class, "Transform");
 
   // Ensure the initialization only happens once. Ideally this should be handled by the library.
   private static final AtomicBoolean initializeStarted = new AtomicBoolean();
@@ -55,30 +54,42 @@ public class MappingFn<M extends Mappable> extends DoFn<M, String> {
 
   private final ValueProvider<String> mappingPath;
   private final ValueProvider<String> mappings;
+  private final boolean enablePerformanceMetrics;
 
   private TransformWrapper engine;
 
   // The config parameter should be the string representation of the whole mapping config, including
   // harmonization and libraries.
-  private MappingFn(ValueProvider<String> mappingPath, ValueProvider<String> mappings) {
+  private MappingFn(
+      ValueProvider<String> mappingPath,
+      ValueProvider<String> mappings,
+      Boolean enablePerformanceMetrics) {
     this.mappingPath = mappingPath;
     this.mappings = mappings;
+    this.enablePerformanceMetrics = enablePerformanceMetrics;
   }
 
-  public static MappingFn of(ValueProvider<String> mappingPath) {
-    return new MappingFn(mappingPath, StaticValueProvider.of(""));
+  public static MappingFn of(ValueProvider<String> mappingPath, Boolean enablePerformanceMetrics) {
+    return new MappingFn(mappingPath, StaticValueProvider.of(""), enablePerformanceMetrics);
   }
 
-  public static MappingFn of(String mappingPath) {
-    return of(StaticValueProvider.of(mappingPath));
+  public static MappingFn of(String mappingPath, Boolean enablePerformanceMetrics) {
+    return of(StaticValueProvider.of(mappingPath), enablePerformanceMetrics);
   }
 
-  public static MappingFn of(ValueProvider<String> mappingPath, ValueProvider<String> mappings) {
-    return new MappingFn(mappingPath, mappings);
+  public static MappingFn of(
+      ValueProvider<String> mappingPath,
+      ValueProvider<String> mappings,
+      Boolean enablePerformanceMetrics) {
+    return new MappingFn(mappingPath, mappings, enablePerformanceMetrics);
   }
 
-  public static MappingFn of(String mappings, String mappingPath) {
-    return of(StaticValueProvider.of(mappingPath), StaticValueProvider.of(mappings));
+  public static MappingFn of(
+      String mappings, String mappingPath, Boolean enablePerformanceMetrics) {
+    return of(
+        StaticValueProvider.of(mappingPath),
+        StaticValueProvider.of(mappings),
+        enablePerformanceMetrics);
   }
 
   @Setup
@@ -123,25 +134,31 @@ public class MappingFn<M extends Mappable> extends DoFn<M, String> {
     }
   }
 
-  @ProcessElement
-  public void process(ProcessContext ctx) {
-    M input = ctx.element();
-    try {
-      ctx.output(runAndReportMetrics(transformMetrics, () -> engine.transform(input.getData())));
-    } catch (RuntimeException e) {
-      ErrorEntry entry = ErrorEntry.of(e).setStep(getClass().getSimpleName());
-      if (input.getId() != null) {
-        entry.setSources(Collections.singletonList(input.getId()));
-      }
-      ctx.output(ERROR_ENTRY_TAG, entry);
-    }
-  }
-
   // Runs a lambda and collects the metrics.
   private static <T> T runAndReportMetrics(Distribution metrics, Supplier<T> supplier) {
     Instant start = Instant.now();
     T result = supplier.get();
     metrics.update(Instant.now().toEpochMilli() - start.toEpochMilli());
     return result;
+  }
+
+  @Override
+  public void process(ProcessContext ctx) {
+    M input = ctx.element();
+    ctx.output(
+        runAndReportMetrics(
+            transformMetrics,
+            () -> {
+              String transformedData = engine.transform(input.getData());
+              return (enablePerformanceMetrics)
+                  ? new MappedFhirMessageWithSourceTime(
+                      transformedData, input.getCreateTime().get())
+                  : new MappedFhirMessageWithSourceTime(transformedData);
+            }));
+  }
+
+  @Override
+  protected List<String> getSources(M input) {
+    return Collections.singletonList(input.getId());
   }
 }

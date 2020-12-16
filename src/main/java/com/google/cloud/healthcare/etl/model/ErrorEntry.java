@@ -22,6 +22,7 @@ import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.values.TupleTag;
 
@@ -110,5 +111,30 @@ public class ErrorEntry implements Serializable {
 
   public String getTimestamp() {
     return timestamp;
+  }
+
+  public boolean equals(Object other) {
+    if (!(other instanceof ErrorEntry)) {
+      return false;
+    }
+    if (!(Objects.equals(this.errorResource, ((ErrorEntry) other).errorResource))) {
+      return false;
+    }
+    if (!(Objects.equals(this.stackTrace, ((ErrorEntry) other).stackTrace))) {
+      return false;
+    }
+    if (!(Objects.equals(this.errorMessage, ((ErrorEntry) other).errorMessage))) {
+      return false;
+    }
+    if (!(Objects.equals(this.timestamp, ((ErrorEntry) other).timestamp))) {
+      return false;
+    }
+    if (!(Objects.equals(this.step, ((ErrorEntry) other).step))) {
+      return false;
+    }
+    if (!(Objects.equals(this.sources, ((ErrorEntry) other).sources))) {
+      return false;
+    }
+    return true;
   }
 }

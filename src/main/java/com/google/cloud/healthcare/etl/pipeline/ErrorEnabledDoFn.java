@@ -32,7 +32,7 @@ public abstract class ErrorEnabledDoFn<Input, Output> extends DoFn<Input, Output
     Input input = ctx.element();
     try {
       process(ctx);
-    } catch (RuntimeException e) {
+    } catch (Exception e) {
       ErrorEntry error =
           ErrorEntry.of(e, getErrorResource(input))
               .setStep(getClass().getSimpleName())
@@ -46,22 +46,22 @@ public abstract class ErrorEnabledDoFn<Input, Output> extends DoFn<Input, Output
   }
 
   /**
-   * The main processing logic, the sub-class is expected to implement this method and
-   * output the results.
+   * The main processing logic, the sub-class is expected to implement this method and output the
+   * results.
    */
   public abstract void process(ProcessContext ctx) throws Exception;
 
   /**
-   * Defines how to extract the error resource for the ErrorEntry from the input.
-   * The default populate is empty, override this method to populate the ErrorEntry errorResource.
+   * Defines how to extract the error resource for the ErrorEntry from the input. The default
+   * populate is empty, override this method to populate the ErrorEntry errorResource.
    */
   protected String getErrorResource(Input input) {
     return "";
   }
 
   /**
-   * Defines how to extract the error source for the ErrorEntry from the input.
-   * The default populate is empty, override this method to populate the ErrorEntry sources.
+   * Defines how to extract the error source for the ErrorEntry from the input. The default populate
+   * is empty, override this method to populate the ErrorEntry sources.
    */
   protected List<String> getSources(Input input) {
     return Collections.emptyList();

@@ -60,7 +60,7 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
 
   // The config parameter should be the string representation of the whole mapping config, including
   // harmonization and libraries.
-  private MappingFn(
+  protected MappingFn(
       ValueProvider<String> mappingPath,
       ValueProvider<String> mappings,
       Boolean enablePerformanceMetrics) {

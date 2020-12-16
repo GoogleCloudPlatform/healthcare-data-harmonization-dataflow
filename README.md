@@ -41,7 +41,7 @@ Build a fat JAR of the pipeline by running the following from the project direct
 
 ```bash
 # Generate wrapper classes.
-gradle wrapper
+gradle wrapper --gradle-version 6.7.1
 ./gradlew shadowJar
 ```
 

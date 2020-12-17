@@ -22,26 +22,23 @@ import org.apache.beam.sdk.values.PCollection;
 import org.junit.Rule;
 import org.junit.Test;
 
-/**
- * Testing the class's ability to generate a FHIR resource of type "Bundle" as a json string.
- */
+/** Testing the class's ability to generate a FHIR resource of type "Bundle" as a json string. */
 public class CreateFhirResourceBundleTest {
 
-    private final String fhirResource = "{\"resourceType\": \"ImagingStudy\"}";
+  private final String fhirResource = "{\"resourceType\": \"ImagingStudy\"}";
 
-    private final String fhirInputString = "{\"resourceType\":\"Bundle\",\"type\":\"batch\",\"entry\":[{\"resource\":{\"resourceType\":\"ImagingStudy\"},\"request\":{\"method\":\"PUT\",\"url\":\"ImagingStudy\"}}]}";
+  private final String fhirInputString =
+      "{\"resourceType\":\"Bundle\",\"type\":\"batch\",\"entry\":[{\"resource\":{\"resourceType\":\"ImagingStudy\"},\"request\":{\"method\":\"PUT\",\"url\":\"ImagingStudy\"}}]}";
 
-    @Rule
-    public final transient TestPipeline pipeline = TestPipeline.create();
+  @Rule public final transient TestPipeline pipeline = TestPipeline.create();
 
-    @Test
-    public void test_successfulReformat() {
-        PCollection<String> reformatedString = pipeline
-                .apply(Create.of(fhirResource))
-                .apply(ParDo.of(new CreateFhirResourceBundle()));
+  @Test
+  public void test_successfulReformat() {
+    PCollection<String> reformatedString =
+        pipeline.apply(Create.of(fhirResource)).apply(ParDo.of(new CreateFhirResourceBundle()));
 
-        PAssert.that(reformatedString).containsInAnyOrder(fhirInputString);
+    PAssert.that(reformatedString).containsInAnyOrder(fhirInputString);
 
-        pipeline.run();
-    }
+    pipeline.run();
+  }
 }

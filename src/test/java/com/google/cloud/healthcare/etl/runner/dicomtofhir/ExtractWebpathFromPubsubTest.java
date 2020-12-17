@@ -24,23 +24,24 @@ import org.junit.Test;
 import org.junit.Rule;
 
 /**
- * Testing the ability of this DoFn to extract the webpath of a DICOM instance from the PubSub message.
+ * Testing the ability of this DoFn to extract the webpath of a DICOM instance from the PubSub
+ * message.
  */
 public class ExtractWebpathFromPubsubTest {
-    @Rule public final transient TestPipeline pipeline = TestPipeline.create();
+  @Rule public final transient TestPipeline pipeline = TestPipeline.create();
 
-    @Test
-    public void test_successfulExtraction() {
-        String webPathIn = "projects/foo/locations/earth/datasets/bar/dicomStores/fee/dicomWeb/studies/abc/series/xyz/instances/123";
-        byte[] pubsubPayload = webPathIn.getBytes();
-        PubsubMessage pubsubMessage = new PubsubMessage(pubsubPayload, null);
+  @Test
+  public void test_successfulExtraction() {
+    String webPathIn =
+        "projects/foo/locations/earth/datasets/bar/dicomStores/fee/dicomWeb/studies/abc/series/xyz/instances/123";
+    byte[] pubsubPayload = webPathIn.getBytes();
+    PubsubMessage pubsubMessage = new PubsubMessage(pubsubPayload, null);
 
-        PCollection<String> extractedWebpath = pipeline
-                .apply(Create.of(pubsubMessage))
-                .apply(ParDo.of(new ExtractWebpathFromPubsub()));
+    PCollection<String> extractedWebpath =
+        pipeline.apply(Create.of(pubsubMessage)).apply(ParDo.of(new ExtractWebpathFromPubsub()));
 
-        PAssert.that(extractedWebpath).containsInAnyOrder(webPathIn);
+    PAssert.that(extractedWebpath).containsInAnyOrder(webPathIn);
 
-        pipeline.run();
-    }
+    pipeline.run();
+  }
 }

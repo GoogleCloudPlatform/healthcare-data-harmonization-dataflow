@@ -17,10 +17,13 @@ import com.google.cloud.healthcare.etl.model.ErrorEntry;
 import com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverter;
 import com.google.cloud.healthcare.etl.model.mapping.HclsApiDicomMappableMessage;
 import com.google.cloud.healthcare.etl.model.mapping.HclsApiDicomMappableMessageCoder;
+import com.google.cloud.healthcare.etl.model.mapping.MappingOutput;
 import com.google.cloud.healthcare.etl.pipeline.MappingFn;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.TextIO;
 import org.apache.beam.sdk.io.gcp.healthcare.DicomIO;
@@ -41,11 +44,12 @@ import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
-import org.apache.beam.sdk.values.*;
+import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionTuple;
+import org.apache.beam.sdk.values.TupleTagList;
+import org.apache.beam.sdk.values.TypeDescriptor;
+import org.apache.beam.sdk.values.TypeDescriptors;
 import org.joda.time.Duration;
-
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
 
 /**
  * The entry point of the pipeline. It will be triggered upon receiving a PubSub message from the
@@ -53,8 +57,8 @@ import java.nio.charset.StandardCharsets;
  * it's metadata from DICOM IO. With the response, it will map the study metadata to a FHIR
  * ImagingStudyResource and upload it to the given FHIR store.
  *
- * <p>The errors for each component are handled separately, e.g. you can specify file paths for each
- * of the stage (read - DICOM IO, mapping, write - FHIR IO).
+ * The errors for each component are handled separately, e.g. you can specify file paths for
+ * each stage (read - DICOM IO, mapping, write - FHIR IO).
  */
 public class DicomToFhirStreamingRunner {
   private static Duration ERROR_LOG_WINDOW_SIZE = Duration.standardSeconds(5);
@@ -228,7 +232,8 @@ public class DicomToFhirStreamingRunner {
    */
   private PCollection<String> mapDicomStudyMetadataToFhirResource(
       PCollection<String> studyMetadata, Options options) {
-    MappingFn<HclsApiDicomMappableMessage> mappingFn = MappingFn.of(options.getMappingPath());
+    // TODO(b/176925046): support performance metrics.
+    MappingFn<HclsApiDicomMappableMessage> mappingFn = MappingFn.of(options.getMappingPath(), false);
 
     PCollectionTuple mapDicomStudyToFhirBundleRequest =
         studyMetadata
@@ -265,7 +270,9 @@ public class DicomToFhirStreamingRunner {
                 .withWindowedWrites()
                 .withNumShards(options.getErrorLogShardNum()));
 
-    return mapDicomStudyToFhirBundleRequest.get(MappingFn.MAPPING_TAG);
+    return mapDicomStudyToFhirBundleRequest.get(MappingFn.MAPPING_TAG)
+            .apply(MapElements.into(TypeDescriptors.strings()).via(MappingOutput::getOutput));
+
   }
 
   /**

@@ -1,4 +1,4 @@
-// Copyright {current year} Google LLC.
+// Copyright 2021 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -63,6 +63,7 @@ import org.joda.time.Duration;
 public class DicomToFhirStreamingRunner {
   private static Duration ERROR_LOG_WINDOW_SIZE = Duration.standardSeconds(5);
 
+  /** Pipeline options. */
   public interface Options extends PipelineOptions {
     @Description(
         "The PubSub subscription to listen to, must be of the full format: "
@@ -85,7 +86,8 @@ public class DicomToFhirStreamingRunner {
 
     @Description(
         "The target FHIR Store to write data to, must be of the full format: "
-            + "projects/project_id/locations/location/datasets/dataset_id/fhirStores/fhir_store_id")
+            + "projects/project_id/locations/location/datasets/dataset_id/fhirStores/fhir_store_id"
+    )
     @Required
     String getFhirStore();
 
@@ -93,7 +95,8 @@ public class DicomToFhirStreamingRunner {
 
     @Description(
         "The path that is used to record all read errors. The path will be treated "
-            + "as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a local file.")
+            + "as a GCS path if the path starts with the GCS scheme (\"gs\"), otherwise a local"
+                + " file.")
     @Required
     String getReadErrorPath();
 

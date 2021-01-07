@@ -20,8 +20,9 @@ import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PCollection;
-import org.junit.Test;
 import org.junit.Rule;
+import org.junit.Test;
+
 
 /**
  * Testing the ability of this DoFn to extract the webpath of a DICOM instance from the PubSub

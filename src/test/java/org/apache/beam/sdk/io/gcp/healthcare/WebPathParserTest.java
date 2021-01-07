@@ -13,14 +13,14 @@
 // limitations under the License.
 package org.apache.beam.sdk.io.gcp.healthcare;
 
+import java.io.IOException;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import java.io.IOException;
 
-/** Testing the Healthcare API webpath parser. */
 @RunWith(JUnit4.class)
+/** Testing the Healthcare API webpath parser. */
 public class WebPathParserTest {
 
   @Test

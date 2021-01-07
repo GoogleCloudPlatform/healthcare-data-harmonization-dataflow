@@ -23,7 +23,6 @@ import org.apache.beam.sdk.values.PCollection;
 import org.junit.Rule;
 import org.junit.Test;
 
-
 /**
  * Testing the ability of this DoFn to extract the webpath of a DICOM instance from the PubSub
  * message.

@@ -22,16 +22,17 @@ import java.util.List;
 import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.coders.CustomCoder;
 import org.apache.beam.sdk.coders.IterableCoder;
+import org.apache.beam.sdk.coders.NullableCoder;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 
 /** A custom coder for {@link ErrorEntry}. */
 public class ErrorEntryCoder extends CustomCoder<ErrorEntry> {
-  private static StringUtf8Coder STRING_CODER = StringUtf8Coder.of();
-  private static IterableCoder<String> LIST_CODER = IterableCoder.of(STRING_CODER);
+  private static NullableCoder<String> STRING_CODER = NullableCoder.of(StringUtf8Coder.of());
+  private static NullableCoder<Iterable<String>> LIST_CODER =
+      NullableCoder.of(IterableCoder.of(STRING_CODER));
 
   @Override
-  public void encode(ErrorEntry value, OutputStream outStream)
-      throws CoderException, IOException {
+  public void encode(ErrorEntry value, OutputStream outStream) throws CoderException, IOException {
     STRING_CODER.encode(value.getErrorResource(), outStream);
     STRING_CODER.encode(value.getStackTrace(), outStream);
     STRING_CODER.encode(value.getErrorMessage(), outStream);

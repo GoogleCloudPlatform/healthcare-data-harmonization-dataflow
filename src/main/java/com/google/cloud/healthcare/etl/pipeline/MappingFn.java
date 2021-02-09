@@ -45,7 +45,8 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
   // TODO(b/173141038): refactor the class for capturing performance metrics better.
   private static final Logger LOGGER = LoggerFactory.getLogger(MappingFn.class);
   public static final TupleTag<MappingOutput> MAPPING_TAG = new TupleTag<>("mapping");
-  private final Distribution transformMetrics = Metrics.distribution(MappingFn.class, "Transform");
+  protected final Distribution transformMetrics =
+      Metrics.distribution(MappingFn.class, "Transform");
 
   // Ensure the initialization only happens once. Ideally this should be handled by the library.
   private static final AtomicBoolean initializeStarted = new AtomicBoolean();
@@ -56,7 +57,7 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
   private final ValueProvider<String> mappings;
   private final boolean enablePerformanceMetrics;
 
-  private TransformWrapper engine;
+  protected TransformWrapper engine;
 
   // The config parameter should be the string representation of the whole mapping config, including
   // harmonization and libraries.
@@ -135,7 +136,7 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
   }
 
   // Runs a lambda and collects the metrics.
-  private static <T> T runAndReportMetrics(Distribution metrics, Supplier<T> supplier) {
+  protected static <T> T runAndReportMetrics(Distribution metrics, Supplier<T> supplier) {
     Instant start = Instant.now();
     T result = supplier.get();
     metrics.update(Instant.now().toEpochMilli() - start.toEpochMilli());

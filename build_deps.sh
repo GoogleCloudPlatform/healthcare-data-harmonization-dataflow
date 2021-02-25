@@ -50,12 +50,6 @@ if [[ ! -d "${JNI_DIR}" || ! -d "${JNI_DIR_LINUX}" ]]; then
   exit 1
 fi
 
-function abspath() {
-  pushd $1 > /dev/null
-  base=$(pwd)
-  popd > /dev/null
-  echo $base
-}
 
 CURR_DIR="$(pwd)"
 REPO_DIR="$(dirname "$0")"
@@ -65,13 +59,6 @@ git clone "${DH_REPO}" "${WORK_DIR}"
 
 cp -r "${REPO_DIR}/deps/clib" "${WORK_DIR}/mapping_engine/clib"
 cp -r "${REPO_DIR}/deps/wrapping" "${WORK_DIR}/mapping_engine/_wrapping"
-
-cd "${WORK_DIR}/mapping_engine/_wrapping"
-go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_language=$(abspath ../../)/mapping_language
-go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/proto=$(abspath ../)/proto
-go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/util=$(abspath ../)/util
-go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/transform=$(abspath ../)/transform
-go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine=$(abspath ../)
 
 echo "Building mapping engine..."
 
@@ -86,7 +73,20 @@ gcc -fPIC -Wl,--strip-all -c clib/mapping_util.c \
   -I"${JNI_DIR_LINUX}" \
   -o _wrapping/mapping_util.o
 
+echo "Building wrapping..."
 cd _wrapping
+go mod init github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/wrapping
+go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_language=../../mapping_language
+go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/proto=../proto
+go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/util=../util
+go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine=../
+go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_language/transpiler=../../mapping_language/transpiler
+go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/transform=../transform
+
+go get github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/proto
+go get github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/transform
+go get github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_language/transpiler
+go get google.golang.org/protobuf/encoding/prototext
 go build -ldflags "-s -w" -o "${OUTPUT_DIR}/libwhistler.so" -buildmode=c-shared
 
 # Clean up work directory
@@ -94,4 +94,3 @@ echo "Cleaning up temporary work directory..."
 rm -rf "${WORK_DIR}"
 
 cd "${CURR_DIR}"
-

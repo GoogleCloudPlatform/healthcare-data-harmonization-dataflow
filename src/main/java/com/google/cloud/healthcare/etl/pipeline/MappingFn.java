@@ -20,12 +20,12 @@ import com.google.cloud.healthcare.etl.model.mapping.MappingOutput;
 import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProvider;
 import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProviderFactory;
 import com.google.cloud.healthcare.etl.util.library.TransformWrapper;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.beam.sdk.metrics.Distribution;
@@ -49,9 +49,7 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
       Metrics.distribution(MappingFn.class, "Transform");
 
   // Ensure the initialization only happens once. Ideally this should be handled by the library.
-  private static final AtomicBoolean initializeStarted = new AtomicBoolean();
-  private static final AtomicBoolean initializeFinished = new AtomicBoolean();
-  private static final CountDownLatch initializeGate = new CountDownLatch(1);
+  private static final AtomicBoolean initialized = new AtomicBoolean();
 
   private final ValueProvider<String> mappingPath;
   private final ValueProvider<String> mappings;
@@ -94,35 +92,25 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
   }
 
   @Setup
-  public void initialize() throws InterruptedException {
+  public void initialize() {
     // Make sure the mapping configuration is only initialized once.
-    if (initializeStarted.compareAndSet(false, true)) {
-      LOGGER.info("Initializing the mapping configurations.");
-      engine = TransformWrapper.getInstance();
-      try {
-        // Mapping configurations are loaded from the `mappingPath` only if `mappings` is absent.
-        String mappingsToUse = mappings.get();
-        if (Strings.isNullOrEmpty(mappingsToUse)) {
-          mappingsToUse = loadMapping(mappingPath.get());
+    synchronized (initialized) {
+      if (!initialized.get()) {
+        LOGGER.info("Initializing the mapping configurations.");
+        engine = TransformWrapper.getInstance();
+        try {
+          // Mapping configurations are loaded from the `mappingPath` only if `mappings` is absent.
+          String mappingsToUse = mappings.get();
+          if (Strings.isNullOrEmpty(mappingsToUse)) {
+            mappingsToUse = loadMapping(mappingPath.get());
+          }
+          engine.initializeWhistler(mappingsToUse);
+        } catch (RuntimeException e) {
+          LOGGER.error("Unable to initialize mapping configurations.", e);
+          throw e; // Fail fast.
         }
-        engine.initializeWhistler(mappingsToUse);
-        // This has to be done before opening the gate to avoid race conditions.
-        initializeFinished.compareAndSet(false, true);
-      } catch (RuntimeException e) {
-        LOGGER.error("Unable to initialize mapping configurations.", e);
-        // Reset the flag so that initialization can be retried (e.g. users fixed the mapping
-        // configurations), by another thread.
-        initializeStarted.compareAndSet(true, false);
-        throw e; // Fail fast.
-      } finally {
-        // Open the gate in case other threads are waiting. Successive transformations will fail if
-        // initialization failed.
-        initializeGate.countDown();
+        initialized.set(true);
       }
-    } else if (!initializeFinished.get()) {
-      // Wait for the gate to open if initialization is not done.
-      LOGGER.info("Waiting for initialization to finish.");
-      initializeGate.await();
     }
   }
 
@@ -161,5 +149,17 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
   @Override
   protected List<String> getSources(M input) {
     return Collections.singletonList(input.getId());
+  }
+
+  /**
+   * Multiple tests run from the same jvm could be forced to reuse the same mappings leading to
+   * side-effects. To give tests the ability to re-initialize mappings, we expose this function that
+   * should only be called in a test class's @BeforeClass method.
+   *
+   * <p>ONLY FOR TESTS.
+   */
+  @VisibleForTesting
+  public static void resetInitialize() {
+    initialized.set(false);
   }
 }

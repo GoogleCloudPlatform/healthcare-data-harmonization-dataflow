@@ -118,7 +118,7 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
     MappingConfigProvider provider = MappingConfigProviderFactory.createProvider(mappingPath);
     try {
       return new String(provider.getMappingConfig(true /* force */), StandardCharsets.UTF_8);
-    } catch (IOException e) {
+    } catch (IOException | NullPointerException e) {
       throw new RuntimeException("Unable to load mapping configurations.", e);
     }
   }

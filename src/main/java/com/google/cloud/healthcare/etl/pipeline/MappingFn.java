@@ -152,9 +152,8 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
   }
 
   /**
-   * Multiple tests run from the same jvm could be forced to reuse the same mappings leading to
-   * side-effects. To give tests the ability to re-initialize mappings, we expose this function that
-   * should only be called in a test class's @BeforeClass method.
+   * Multiple tests run from the same jvm could end up reusing the same mappings leading to
+   * side-effects. This function is exposed give tests the ability to re-initialize mappings.
    *
    * <p>ONLY FOR TESTS.
    */

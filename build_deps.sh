@@ -83,9 +83,13 @@ go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonizatio
 go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_language/transpiler=../../mapping_language/transpiler
 go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/transform=../transform
 
+go get google.golang.org/genproto/googleapis/api/annotations@v0.0.0-20200526211855-cb27e3aa2013
+go get google.golang.org/genproto/googleapis/rpc/status@v0.0.0-20200526211855-cb27e3aa2013
+go get google.golang.org/grpc/binarylog/grpc_binarylog_v1@v1.27.1
+go get google.golang.org/protobuf/testing/protocmp@v1.26.0
 go get github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/proto
 go get github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/transform
-go get github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_language/transpiler
+go get github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_language/transpiler@v0.0.0-20210315190620-fb0f05814962
 go get google.golang.org/protobuf/encoding/prototext
 go build -ldflags "-s -w" -o "${OUTPUT_DIR}/libwhistler.so" -buildmode=c-shared
 

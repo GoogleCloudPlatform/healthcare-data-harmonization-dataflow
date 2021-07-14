@@ -12,7 +12,7 @@ plugins {
 group 'com.google.cloud.healthcare'
 version '0.1.0'
 
-sourceCompatibility = 1.8
+sourceCompatibility = 11
 
 repositories {
     mavenCentral()
@@ -50,11 +50,11 @@ tasks.withType(AbstractArchiveTask) {
 
 configurations.all {
     resolutionStrategy {
-        force 'org.mockito:mockito-core:2.8.9'
+        force 'org.mockito:mockito-core:3.9.0'
     }
 }
 
-def dataflowVersion = '2.27.0'
+def dataflowVersion = '2.28.0'
 def autoValueVersion = '1.7'
 
 dependencies {
@@ -104,7 +104,7 @@ clean {
     delete files('gradle/wrapper')
 }
 
-task buildDeps(type:Exec) {
+task buildDeps(type: Exec) {
     inputs.dir('deps')
     outputs.file('lib/libwhistler.so')
     commandLine './build_deps.sh', '--work_dir', file('build/tmp/build_deps').absolutePath, '--output_dir', file('lib').absolutePath

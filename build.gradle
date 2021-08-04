@@ -54,7 +54,7 @@ configurations.all {
     }
 }
 
-def dataflowVersion = '2.28.0'
+def dataflowVersion = '2.29.0'
 def autoValueVersion = '1.7'
 
 dependencies {

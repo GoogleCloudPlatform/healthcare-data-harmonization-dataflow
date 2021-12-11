@@ -75,6 +75,8 @@ dependencies {
     implementation "com.google.auto.value:auto-value-annotations:${autoValueVersion}"
     annotationProcessor "com.google.auto.value:auto-value:${autoValueVersion}"
 
+    implementation "org.apache.logging.log4j:log4j-api:2.15.0"
+
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.4.0'
     testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.4.0'
     testImplementation 'junit:junit:4.12'

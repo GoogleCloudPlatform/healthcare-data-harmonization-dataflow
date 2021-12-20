@@ -17,8 +17,8 @@ package org.apache.beam.sdk.io.gcp.healthcare;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertThat;
 
-import com.google.api.services.healthcare.v1beta1.model.ParsedData;
-import com.google.api.services.healthcare.v1beta1.model.Segment;
+import com.google.api.services.healthcare.v1.model.ParsedData;
+import com.google.api.services.healthcare.v1.model.Segment;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

@@ -16,7 +16,7 @@ package org.apache.beam.sdk.io.gcp.healthcare;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.google.api.services.healthcare.v1beta1.model.ParsedData;
+import com.google.api.services.healthcare.v1.model.ParsedData;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;

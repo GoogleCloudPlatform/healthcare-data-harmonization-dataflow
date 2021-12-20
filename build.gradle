@@ -16,6 +16,9 @@ sourceCompatibility = 11
 
 repositories {
     mavenCentral()
+    maven {
+        url "https://packages.confluent.io/maven"
+    }
 }
 
 sourceSets {
@@ -54,7 +57,7 @@ configurations.all {
     }
 }
 
-def dataflowVersion = '2.29.0'
+def dataflowVersion = '2.34.0'
 def autoValueVersion = '1.7'
 
 dependencies {

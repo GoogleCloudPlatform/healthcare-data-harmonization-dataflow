@@ -65,7 +65,7 @@ public class FhirIOWithMetrics {
     public enum WriteMethod {
       /**
        * Execute Bundle Method executes a batch of requests as a single transaction @see <a
-       * href=https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/projects.locations.datasets.fhirStores.fhir/executeBundle></a>.
+       * href=https://cloud.google.com/healthcare/docs/reference/rest/v1/projects.locations.datasets.fhirStores.fhir/executeBundle></a>.
        */
       EXECUTE_BUNDLE,
     }
@@ -191,7 +191,7 @@ public class FhirIOWithMetrics {
 
     /**
      * Execute Bundle Method executes a batch of requests as a single transaction @see <a
-     * href=https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/projects.locations.datasets.fhirStores.fhir/executeBundle></a>.
+     * href=https://cloud.google.com/healthcare/docs/reference/rest/v1/projects.locations.datasets.fhirStores.fhir/executeBundle></a>.
      *
      * @param fhirStore the hl 7 v 2 store
      * @return the write

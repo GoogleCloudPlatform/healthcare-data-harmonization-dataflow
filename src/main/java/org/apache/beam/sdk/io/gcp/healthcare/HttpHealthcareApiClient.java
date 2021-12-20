@@ -20,34 +20,39 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
-import com.google.api.services.healthcare.v1beta1.CloudHealthcare;
-import com.google.api.services.healthcare.v1beta1.CloudHealthcare.Projects.Locations.Datasets.FhirStores.Fhir.Search;
-import com.google.api.services.healthcare.v1beta1.CloudHealthcare.Projects.Locations.Datasets.Hl7V2Stores.Messages;
-import com.google.api.services.healthcare.v1beta1.CloudHealthcareScopes;
-import com.google.api.services.healthcare.v1beta1.model.CreateMessageRequest;
-import com.google.api.services.healthcare.v1beta1.model.DicomStore;
-import com.google.api.services.healthcare.v1beta1.model.Empty;
-import com.google.api.services.healthcare.v1beta1.model.FhirStore;
-import com.google.api.services.healthcare.v1beta1.model.GoogleCloudHealthcareV1beta1FhirGcsSource;
-import com.google.api.services.healthcare.v1beta1.model.Hl7V2Store;
-import com.google.api.services.healthcare.v1beta1.model.HttpBody;
-import com.google.api.services.healthcare.v1beta1.model.ImportResourcesRequest;
-import com.google.api.services.healthcare.v1beta1.model.IngestMessageRequest;
-import com.google.api.services.healthcare.v1beta1.model.IngestMessageResponse;
-import com.google.api.services.healthcare.v1beta1.model.ListMessagesResponse;
-import com.google.api.services.healthcare.v1beta1.model.Message;
-import com.google.api.services.healthcare.v1beta1.model.NotificationConfig;
-import com.google.api.services.healthcare.v1beta1.model.Operation;
-import com.google.api.services.healthcare.v1beta1.model.ParserConfig;
-import com.google.api.services.healthcare.v1beta1.model.SearchResourcesRequest;
+import com.google.api.services.healthcare.v1.CloudHealthcare;
+import com.google.api.services.healthcare.v1.CloudHealthcare.Projects.Locations.Datasets.FhirStores.Fhir.Search;
+import com.google.api.services.healthcare.v1.CloudHealthcare.Projects.Locations.Datasets.Hl7V2Stores.Messages;
+import com.google.api.services.healthcare.v1.CloudHealthcareScopes;
+import com.google.api.services.healthcare.v1.model.CreateMessageRequest;
+import com.google.api.services.healthcare.v1.model.DicomStore;
+import com.google.api.services.healthcare.v1.model.Empty;
+import com.google.api.services.healthcare.v1.model.FhirStore;
+import com.google.api.services.healthcare.v1.model.GoogleCloudHealthcareV1FhirGcsSource;
+import com.google.api.services.healthcare.v1.model.Hl7V2NotificationConfig;
+import com.google.api.services.healthcare.v1.model.Hl7V2Store;
+import com.google.api.services.healthcare.v1.model.HttpBody;
+import com.google.api.services.healthcare.v1.model.ImportResourcesRequest;
+import com.google.api.services.healthcare.v1.model.IngestMessageRequest;
+import com.google.api.services.healthcare.v1.model.IngestMessageResponse;
+import com.google.api.services.healthcare.v1.model.ListMessagesResponse;
+import com.google.api.services.healthcare.v1.model.Message;
+import com.google.api.services.healthcare.v1.model.NotificationConfig;
+import com.google.api.services.healthcare.v1.model.Operation;
+import com.google.api.services.healthcare.v1.model.ParserConfig;
+import com.google.api.services.healthcare.v1.model.SearchResourcesRequest;
 import com.google.api.services.storage.StorageScopes;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -56,9 +61,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.extensions.gcp.util.RetryHttpRequestInitializer;
 import org.apache.beam.sdk.util.ReleaseInfo;
-import org.apache.beam.vendor.grpc.v1p26p0.com.google.gson.FieldNamingPolicy;
-import org.apache.beam.vendor.grpc.v1p26p0.com.google.gson.Gson;
-import org.apache.beam.vendor.grpc.v1p26p0.com.google.gson.GsonBuilder;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Strings;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -148,8 +150,9 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
       store.setParserConfig(parserConfig);
     }
     if (pubsubTopic != null) {
-      NotificationConfig notificationConfig = new NotificationConfig().setPubsubTopic(pubsubTopic);
-      store.setNotificationConfig(notificationConfig);
+      Hl7V2NotificationConfig notificationConfig =
+          new Hl7V2NotificationConfig().setPubsubTopic(pubsubTopic);
+      store.setNotificationConfigs(Collections.singletonList(notificationConfig));
     }
     return client
         .projects()
@@ -283,7 +286,7 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
       return Instant.ofEpochMilli(0);
     }
     // sendTime is conveniently RFC3339 UTC "Zulu"
-    // https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/projects.
+    // https://cloud.google.com/healthcare/docs/reference/rest/v1/projects.
     // locations.datasets.hl7V2Stores.messages#Message
     return Instant.parse(sendTime);
   }
@@ -320,7 +323,7 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
       return Instant.now();
     }
     // sendTime is conveniently RFC3339 UTC "Zulu"
-    // https://cloud.google.com/healthcare/docs/reference/rest/v1beta1/
+    // https://cloud.google.com/healthcare/docs/reference/rest/v1/
     // projects.locations.datasets.hl7V2Stores.messages#Message
     return Instant.parse(sendTime);
   }
@@ -454,8 +457,7 @@ public class HttpHealthcareApiClient implements HealthcareApiClient, Serializabl
   public Operation importFhirResource(
       String fhirStore, String gcsSourcePath, @Nullable String contentStructure)
       throws IOException {
-    GoogleCloudHealthcareV1beta1FhirGcsSource gcsSrc =
-        new GoogleCloudHealthcareV1beta1FhirGcsSource();
+    GoogleCloudHealthcareV1FhirGcsSource gcsSrc = new GoogleCloudHealthcareV1FhirGcsSource();
 
     gcsSrc.setUri(gcsSourcePath);
     ImportResourcesRequest importRequest = new ImportResourcesRequest();

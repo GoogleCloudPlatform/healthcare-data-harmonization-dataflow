@@ -73,6 +73,8 @@ gcc -fPIC -Wl,--strip-all -c clib/mapping_util.c \
   -I"${JNI_DIR_LINUX}" \
   -o _wrapping/mapping_util.o
 
+export C_INCLUDE_PATH="${JNI_DIR}:${JNI_DIR_LINUX}"
+
 echo "Building wrapping..."
 cd _wrapping
 go mod init github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/wrapping
@@ -96,5 +98,7 @@ go build -ldflags "-s -w" -o "${OUTPUT_DIR}/libwhistler.so" -buildmode=c-shared
 # Clean up work directory
 echo "Cleaning up temporary work directory..."
 rm -rf "${WORK_DIR}"
+
+unset C_INCLUDE_PATH
 
 cd "${CURR_DIR}"

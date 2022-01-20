@@ -52,14 +52,15 @@ Now run the pipeline with the following command:
 ```bash
 # Please set the environment variables in the following command.
 
-java -jar build/libs/converter-0.1.0-all.jar --pubSubSubscription="projects/${PROJECT}/subscriptions/${SUBSCRIPTION}" \
-                                             --readErrorPath="gs://${ERROR_BUCKET}/read/read_error.txt" \
-                                             --writeErrorPath="gs://${ERROR_BUCKET}/write/write_error.txt" \
-                                             --mappingErrorPath="gs://${ERROR_BUCKET}/mapping/mapping_error.txt" \
-                                             --mappingPath="gs://${MAPPING_BUCKET}/mapping.textproto" \
-                                             --fhirStore="projects/${PROJECT}/locations/${LOCATION}/datasets/${DATASET}/fhirStores/${FHIRSTORE}" \
+java -jar build/libs/converter-0.1.0-all.jar --pubSubSubscription="projects/${PROJECT?}/subscriptions/${SUBSCRIPTION?}" \
+                                             --readErrorPath="gs://${ERROR_BUCKET?}/read/" \
+                                             --writeErrorPath="gs://${ERROR_BUCKET?}/write/" \
+                                             --mappingErrorPath="gs://${ERROR_BUCKET?}/mapping/" \
+                                             --mappingPath="gs://${MAPPING_BUCKET?}/mapping.textproto" \
+                                             --fhirStore="projects/${PROJECT?}/locations/${LOCATION?}/datasets/${DATASET?}/fhirStores/${FHIRSTORE?}" \
                                              --runner=DataflowRunner \
-                                             --project=${PROJECT}
+                                             --region=${REGION?} \
+                                             --project=${PROJECT?}
 ```
 
 A few notes:
@@ -93,8 +94,8 @@ This directory contains a reference Cloud Dataflow pipeline to convert a DICOM S
 * Install the latest [GCloud SDK](https://cloud.google.com/sdk/install).
 * Create a [project](https://cloud.google.com/resource-manager/docs/creating-managing-projects).
 * Create a [DICOM Store](https://cloud.google.com/healthcare/docs/how-tos/dicom).
-* Create a [FHIR Store](https://cloud.google.com/healthcare/docs/how-tos/fhir).
-  * Set enableUpdateCreate for the FHIR store (https://cloud.google.com/healthcare/docs/reference/rest/v1/projects.locations.datasets.fhirStores#FhirStore.FIELDS.enable_update_create)
+* Create an R4 [FHIR Store](https://cloud.google.com/healthcare/docs/how-tos/fhir).
+  * Set disableReferentialIntegrity for the FHIR store (https://cloud.google.com/healthcare-api/docs/reference/rest/v1/projects.locations.datasets.fhirStores#FhirStore.FIELDS.disable_referential_integrity
 * Enable [Cloud Dataflow API](https://cloud.google.com/endpoints/docs/openapi/enable-api).
 
 ### Permissions
@@ -114,15 +115,6 @@ The [Cloud Dataflow Controller Service Account](https://cloud.google.com/dataflo
 
 ## How to Run
 
-In build.gradle, change the main class of the build from "Hl7v2ToFhirStreamingRunner" to "DicomToFhirStreamingRunner"
-
-ie.
-```
-shadowJar {
-    mainClassName = project.findProperty('mainClass') ?: 'com.google.cloud.healthcare.etl.runner.dicomtofhir.DicomToFhirStreamingRunner'
-}
-```
-
 Build a fat JAR of the pipeline by running the following from the project directory.
 
 * Please make sure gradle is added to PATH before running the following commands.
@@ -130,7 +122,7 @@ Build a fat JAR of the pipeline by running the following from the project direct
 ```bash
 # Generate wrapper classes.
 gradle wrapper
-./gradlew shadowJar
+./gradlew shadowJar -PmainClass=com.google.cloud.healthcare.etl.runner.dicomtofhir.DicomToFhirStreamingRunner
 ```
 
 A JAR file should be generated in `build/libs` folder.
@@ -140,14 +132,15 @@ Now run the pipeline with the following command:
 ```bash
 # Please set the environment variables in the following command.
 
-java -jar build/libs/converter-0.1.0-all.jar --pubSubSubscription="projects/${PROJECT}/subscriptions/${SUBSCRIPTION}" \
-                                             --readErrorPath="gs://${ERROR_BUCKET}/read/read_error.txt" \
-                                             --writeErrorPath="gs://${ERROR_BUCKET}/write/write_error.txt" \
-                                             --mappingErrorPath="gs://${ERROR_BUCKET}/mapping/mapping_error.txt" \
-                                             --mappingPath="gs://${MAPPING_BUCKET}/main.textproto" \
-                                             --fhirStore="projects/${PROJECT}/locations/${LOCATION}/datasets/${DATASET}/fhirStores/${FHIRSTORE}" \
+java -jar build/libs/converter-0.1.0-all.jar --pubSubSubscription="projects/${PROJECT?}/subscriptions/${SUBSCRIPTION?}" \
+                                             --readErrorPath="gs://${ERROR_BUCKET?}/read/" \
+                                             --writeErrorPath="gs://${ERROR_BUCKET?}/write/" \
+                                             --mappingErrorPath="gs://${ERROR_BUCKET?}/mapping/" \
+                                             --mappingPath="gs://${MAPPING_BUCKET?}/main.textproto" \
+                                             --fhirStore="projects/${PROJECT?}/locations/${LOCATION}/datasets/${DATASET?}/fhirStores/${FHIRSTORE?}" \
                                              --runner=DataflowRunner \
-                                             --project=${PROJECT}
+                                             --region=${REGION?} \
+                                             --project=${PROJECT?}
 ```
 
 A few notes:
@@ -157,8 +150,7 @@ either `--enableStreamingEngine` (recommended) or a combination of `--autoscalin
 `--maxNumWorkers=N` to manually enable it. See [this page](https://cloud.google.com/dataflow/docs/guides/deploying-a-pipeline#autotuning-features) for more details.
 - For production use, we recommend enabling agent metrics by appending `--experiments=enable_stackdriver_agent_metrics` as an option (you will need to grant `roles/monitoring.metricWriter` to Dataflow controller service account as well), see [this page](https://cloud.google.com/dataflow/docs/guides/using-cloud-monitoring#receive_worker_vm_metrics_from_monitoring_agent) for more details. Additionally, we **highly** recommend limiting the number of threads on each worker, e.g. `--numberOfWorkerHarnessThreads=10`. You can tune the limit based on your workload.
 - To generate a template instead of running the pipeline, add `--stagingLocation=gs://${STAGING_LOCATION} --templateLocation=gs://${TEMPLATE_LOCATION}` to the above command. See [here](https://cloud.google.com/dataflow/docs/guides/templates/creating-templates)
-- The mappingPath file (main.textproto) configures the mapping library. Ensure that the paths inside the file exist (References the following repository: https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/). The required binaries should be installed by the build JAR command.
-
+- The mappingPath file (main.textproto) configures the mapping library. Ensure that the paths inside the file exist (References the following repository: https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/). The required binaries should be installed by the build JAR command. There is a sample main.textproto at src/main/java/com/google/cloud/healthcare/etl/runner/dicomtofhir/main.textproto, if specifying GCS (non-local) paths use `gcs_location:` instead of `local_path:`.
 
 Please take a look at the `PipelineRunner` class to see the concrete meaning of
 each argument.

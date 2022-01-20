@@ -9,7 +9,7 @@ structure_mapping_config: {
   mapping_path_config: {
     mapping_type: MAPPING_LANGUAGE
     mapping_config_path: {
-      local_path: "$MAPPING_ENGINE_HOME/mapping_configs/hl7v2_fhir_r4/configurations/main.wstl"
+      local_path: "$MAPPING_ENGINE_HOME/mapping_configs/dicom_fhir_r4/configurations/main.wstl"
     }
   }
 }

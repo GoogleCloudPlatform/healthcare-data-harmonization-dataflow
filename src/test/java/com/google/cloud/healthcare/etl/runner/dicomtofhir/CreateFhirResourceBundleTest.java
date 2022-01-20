@@ -28,7 +28,7 @@ public class CreateFhirResourceBundleTest {
   private final String fhirResource = "{\"resourceType\": \"ImagingStudy\"}";
 
   private final String fhirInputString =
-      "{\"resourceType\":\"Bundle\",\"type\":\"batch\",\"entry\":[{\"resource\":{\"resourceType\":\"ImagingStudy\"},\"request\":{\"method\":\"PUT\",\"url\":\"ImagingStudy\"}}]}";
+      "{\"resourceType\":\"Bundle\",\"type\":\"transaction\",\"entry\":[{\"resource\":{\"resourceType\":\"ImagingStudy\"},\"request\":{\"method\":\"POST\",\"url\":\"ImagingStudy\"}}]}";
 
   @Rule public final transient TestPipeline pipeline = TestPipeline.create();
 

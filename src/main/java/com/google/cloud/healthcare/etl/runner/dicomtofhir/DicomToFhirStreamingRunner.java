@@ -17,6 +17,7 @@ import com.google.cloud.healthcare.etl.model.ErrorEntry;
 import com.google.cloud.healthcare.etl.model.converter.ErrorEntryConverter;
 import com.google.cloud.healthcare.etl.model.mapping.HclsApiDicomMappableMessage;
 import com.google.cloud.healthcare.etl.model.mapping.HclsApiDicomMappableMessageCoder;
+import com.google.cloud.healthcare.etl.model.mapping.MappedFhirMessageWithSourceTimeCoder;
 import com.google.cloud.healthcare.etl.model.mapping.MappingOutput;
 import com.google.cloud.healthcare.etl.pipeline.MappingFn;
 import com.google.gson.Gson;
@@ -162,7 +163,7 @@ public class DicomToFhirStreamingRunner {
    * prevent creation of a new FHIR resource for every DICOM instance in an ImagingStudy.
    */
   static class CreateFhirResourceBundle extends DoFn<String, String> {
-    private static final String PUT_HTTP_METHOD = "PUT";
+    private static final String POST_HTTP_METHOD = "POST";
     private static final String IMAGING_STUDY_TYPE = "ImagingStudy";
 
     @ProcessElement
@@ -173,7 +174,7 @@ public class DicomToFhirStreamingRunner {
       JsonObject mappingFhirResource = gson.fromJson(mappingOutputString, JsonObject.class);
       JsonObject requestObj = new JsonObject();
 
-      requestObj.addProperty("method", PUT_HTTP_METHOD);
+      requestObj.addProperty("method", POST_HTTP_METHOD);
       requestObj.addProperty("url", IMAGING_STUDY_TYPE);
       JsonObject entryObj = new JsonObject();
       entryObj.add("resource", mappingFhirResource);
@@ -182,7 +183,7 @@ public class DicomToFhirStreamingRunner {
       entries.add(entryObj);
       JsonObject jsonObject = new JsonObject();
       jsonObject.addProperty("resourceType", "Bundle");
-      jsonObject.addProperty("type", "batch");
+      jsonObject.addProperty("type", "transaction");
       jsonObject.add("entry", entries);
       context.output(gson.toJson(jsonObject));
     }
@@ -275,6 +276,7 @@ public class DicomToFhirStreamingRunner {
 
     return mapDicomStudyToFhirBundleRequest
         .get(MappingFn.MAPPING_TAG)
+        .setCoder(MappedFhirMessageWithSourceTimeCoder.of())
         .apply(MapElements.into(TypeDescriptors.strings()).via(MappingOutput::getOutput));
   }
 

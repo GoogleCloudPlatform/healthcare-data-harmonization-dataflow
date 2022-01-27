@@ -13,8 +13,9 @@ This directory contains a reference Cloud Dataflow pipeline to convert HL7v2 mes
 * Install the latest [GCloud SDK](https://cloud.google.com/sdk/install).
 * Create a [project](https://cloud.google.com/resource-manager/docs/creating-managing-projects).
 * Create an [HL7v2 Store](https://cloud.google.com/healthcare/docs/how-tos/hl7v2).
-  * Make sure to use beta endpoints and provide `NotificationConfig`s and a `ParserConfig`.
+  * Make sure to use beta endpoints and provide `NotificationConfig`s and a schematized `ParserConfig`.
 * Create a [FHIR Store](https://cloud.google.com/healthcare/docs/how-tos/fhir).
+  * Set [enableUpdateCreate](https://cloud.google.com/healthcare/docs/reference/rest/v1/projects.locations.datasets.fhirStores#FhirStore.FIELDS.enable_update_create) and [disableReferentialIntegrity](https://cloud.google.com/healthcare-api/docs/reference/rest/v1/projects.locations.datasets.fhirStores#FhirStore.FIELDS.disable_referential_integrity) for the FHIR store.
 * Enable [Cloud Dataflow API](https://cloud.google.com/endpoints/docs/openapi/enable-api).
 * (Highly recommended) Enable [audit logging](https://cloud.google.com/logging/docs/audit).
 
@@ -95,7 +96,7 @@ This directory contains a reference Cloud Dataflow pipeline to convert a DICOM S
 * Create a [project](https://cloud.google.com/resource-manager/docs/creating-managing-projects).
 * Create a [DICOM Store](https://cloud.google.com/healthcare/docs/how-tos/dicom).
 * Create an R4 [FHIR Store](https://cloud.google.com/healthcare/docs/how-tos/fhir).
-  * Set disableReferentialIntegrity for the FHIR store (https://cloud.google.com/healthcare-api/docs/reference/rest/v1/projects.locations.datasets.fhirStores#FhirStore.FIELDS.disable_referential_integrity
+  * Set [disableReferentialIntegrity](https://cloud.google.com/healthcare-api/docs/reference/rest/v1/projects.locations.datasets.fhirStores#FhirStore.FIELDS.disable_referential_integrity) for the FHIR store.
 * Enable [Cloud Dataflow API](https://cloud.google.com/endpoints/docs/openapi/enable-api).
 
 ### Permissions

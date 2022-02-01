@@ -159,8 +159,9 @@ public class DicomToFhirStreamingRunner {
    * A DoFn that will take the response of the mapping library (a FHIR ImagingStudy resource as a
    * json string) and wrap it into a FHIR bundle to be written to the FHIR store. See
    * https://cloud.google.com/healthcare/docs/how-tos/fhir-bundles#executing_a_bundle
-   * TODO(b/174594428): Add a unique ID for each ImagingStudy FHIR resource to be uploaded to
-   * prevent creation of a new FHIR resource for every DICOM instance in an ImagingStudy.
+   * TODO(b/174594428): Add a unique ID for each ImagingStudy FHIR resource in the mappings, and use
+   * a PUT instead. This will prevent creation of a new FHIR resource for every DICOM instance in an
+   * ImagingStudy.
    */
   static class CreateFhirResourceBundle extends DoFn<String, String> {
     private static final String POST_HTTP_METHOD = "POST";

@@ -224,7 +224,7 @@ public class Hl7v2ToFhirStreamingRunner {
               "WriteFHIRBundles", FhirIOWithMetrics.Write.executeBundles(options.getFhirStore()));
       failedBodies = writeResult.getFailedBodies();
     } else {
-      FhirIO.Write.Result writeResult =
+      FhirIO.Write.AbstractResult writeResult =
           mappedMessages
               .apply(MapElements.into(TypeDescriptors.strings()).via(MappingOutput::getOutput))
               .apply("WriteFHIRBundles", FhirIO.Write.executeBundles(options.getFhirStore()));

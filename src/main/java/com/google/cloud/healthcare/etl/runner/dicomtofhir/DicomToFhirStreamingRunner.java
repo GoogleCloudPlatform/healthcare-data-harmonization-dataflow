@@ -288,7 +288,7 @@ public class DicomToFhirStreamingRunner {
    * @param options The pipeline configuration.
    */
   private void writeToFhirStore(PCollection<String> fhirResource, Options options) {
-    FhirIO.Write.Result writeResults =
+    FhirIO.Write.AbstractResult writeResults =
         fhirResource
             .apply(ParDo.of(new CreateFhirResourceBundle()))
             .apply("WriteFHIRBundles", FhirIO.Write.executeBundles(options.getFhirStore()));

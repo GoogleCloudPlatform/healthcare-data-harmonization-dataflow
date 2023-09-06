@@ -57,6 +57,11 @@ REPO_DIR="$(dirname "$0")"
 echo "Cloning latest mapping engine code..."
 git clone "${DH_REPO}" "${WORK_DIR}"
 
+if [ -d "${WORK_DIR}/wstl1"]
+then
+  WORK_DIR="${WORK_DIR}/wstl1"
+fi
+
 cp -r "${REPO_DIR}/deps/clib" "${WORK_DIR}/mapping_engine/clib"
 cp -r "${REPO_DIR}/deps/wrapping" "${WORK_DIR}/mapping_engine/_wrapping"
 

@@ -82,6 +82,7 @@ export C_INCLUDE_PATH="${JNI_DIR}:${JNI_DIR_LINUX}"
 
 echo "Building wrapping..."
 cd _wrapping
+sed -i "s/LDFLAGS: mapping_util.o/LDFLAGS: ${PWD//\//\\/}\/mapping_util.o/g" ./main.go
 go mod init github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/wrapping
 go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_language=../../mapping_language
 go mod edit -replace github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/proto=../proto

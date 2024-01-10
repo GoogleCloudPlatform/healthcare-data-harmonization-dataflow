@@ -99,6 +99,8 @@ go get github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engi
 go get github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_engine/transform
 go get github.com/GoogleCloudPlatform/healthcare-data-harmonization/mapping_language/transpiler@v0.0.0-20210315190620-fb0f05814962
 go get google.golang.org/protobuf/encoding/prototext
+
+go mod tidy
 go build -ldflags "-s -w" -o "${OUTPUT_DIR}/libwhistler.so" -buildmode=c-shared
 
 # Clean up work directory

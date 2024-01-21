@@ -17,8 +17,8 @@
 // Package main exposes APIs from the mapping library to other languages with CGO.
 package main
 
-//#cgo CFLAGS: -I/usr/lib/jvm/java-8-openjdk-amd64/include/
-//#cgo CFLAGS: -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux/
+//#cgo CFLAGS: -I/usr/lib/jvm/java-11-openjdk-amd64/include/
+//#cgo CFLAGS: -I/usr/lib/jvm/java-11-openjdk-amd64/include/linux/
 //#cgo LDFLAGS: mapping_util.o
 /*
 #include "../clib/mapping_util.h"

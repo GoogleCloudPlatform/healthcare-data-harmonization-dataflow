@@ -14,5 +14,5 @@ public interface MappingConfigProvider {
    * @param force forces a read if true, otherwise a cached version may be returned.
    * @return the byte representation of the mapping configurations.
    */
-  byte[] getMappingConfig(boolean force) throws IOException;
+  byte[] getMappingConfig(boolean force, String rootFolder) throws IOException;
 }

@@ -19,7 +19,6 @@ import com.google.cloud.healthcare.etl.model.mapping.MappedFhirMessageWithSource
 import com.google.cloud.healthcare.etl.model.mapping.MappingOutput;
 import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProvider;
 import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProviderFactory;
-import com.google.cloud.healthcare.etl.util.library.TransformWrapper;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -28,6 +27,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import net.bytebuddy.build.Plugin;
 import org.apache.beam.sdk.metrics.Distribution;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.options.ValueProvider;
@@ -36,6 +36,13 @@ import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.cloud.verticals.foundations.dataharmonization.init.Engine;
+import com.google.cloud.verticals.foundations.dataharmonization.init.initializer.ExternalConfigExtractor;
+import com.google.cloud.verticals.foundations.dataharmonization.imports.ImportPath;
+import java.nio.file.Path;
+import com.google.cloud.verticals.foundations.dataharmonization.imports.impl.FileLoader;
+import java.nio.file.FileSystems;
 
 /**
  * The core function of the mapping pipeline. Input is expected to be a parsed message. At this
@@ -53,23 +60,34 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
 
   private final ValueProvider<String> mappingPath;
   private final ValueProvider<String> mappings;
+  private final ValueProvider<String> rootfolder;
   private final boolean enablePerformanceMetrics;
 
-  protected TransformWrapper engine;
+  protected Engine engine;
 
   // The config parameter should be the string representation of the whole mapping config, including
   // harmonization and libraries.
   protected MappingFn(
       ValueProvider<String> mappingPath,
       ValueProvider<String> mappings,
-      Boolean enablePerformanceMetrics) {
+      Boolean enablePerformanceMetrics,
+      ValueProvider<String> rootfolder) {
     this.mappingPath = mappingPath;
     this.mappings = mappings;
     this.enablePerformanceMetrics = enablePerformanceMetrics;
+    this.rootfolder = rootfolder;
+  }
+
+  public static MappingFn of(ValueProvider<String> mappingPath, Boolean enablePerformanceMetrics,ValueProvider<String> rootfolder) {
+    return new MappingFn(mappingPath, StaticValueProvider.of(""), enablePerformanceMetrics,rootfolder);
+  }
+
+  public static MappingFn of(String mappingPath, Boolean enablePerformanceMetrics, String rootfolder) {
+    return of(StaticValueProvider.of(mappingPath), enablePerformanceMetrics,StaticValueProvider.of(rootfolder));
   }
 
   public static MappingFn of(ValueProvider<String> mappingPath, Boolean enablePerformanceMetrics) {
-    return new MappingFn(mappingPath, StaticValueProvider.of(""), enablePerformanceMetrics);
+    return new MappingFn(mappingPath, StaticValueProvider.of(""), enablePerformanceMetrics,StaticValueProvider.of(""));
   }
 
   public static MappingFn of(String mappingPath, Boolean enablePerformanceMetrics) {
@@ -80,7 +98,7 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
       ValueProvider<String> mappingPath,
       ValueProvider<String> mappings,
       Boolean enablePerformanceMetrics) {
-    return new MappingFn(mappingPath, mappings, enablePerformanceMetrics);
+    return new MappingFn(mappingPath, mappings, enablePerformanceMetrics,StaticValueProvider.of(""));
   }
 
   public static MappingFn of(
@@ -97,27 +115,38 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
     synchronized (initialized) {
       if (!initialized.get()) {
         LOGGER.info("Initializing the mapping configurations.");
-        engine = TransformWrapper.getInstance();
+        // engine = TransformWrapper.getInstance();
         try {
           // Mapping configurations are loaded from the `mappingPath` only if `mappings` is absent.
           String mappingsToUse = mappings.get();
+          String rootFolder = rootfolder.get();
           if (Strings.isNullOrEmpty(mappingsToUse)) {
-            mappingsToUse = loadMapping(mappingPath.get());
+            String mapping_config= loadMapping(mappingPath.get(),rootFolder);
+            mappingsToUse = mappingPath.get();
           }
-          engine.initializeWhistler(mappingsToUse);
+          String root_file=mappingsToUse.substring(mappingsToUse.indexOf(rootFolder), mappingsToUse.length());
+          Path mappingPath_new = FileSystems.getDefault().getPath("/tmp/"+ root_file);
+          ImportPath mappingImportPath =
+              ImportPath.of(FileLoader.NAME, mappingPath_new, mappingPath_new.getParent());
+
+          engine = new Engine.Builder(ExternalConfigExtractor.of(mappingImportPath)).initialize().build();
+
         } catch (RuntimeException e) {
           LOGGER.error("Unable to initialize mapping configurations.", e);
           throw e; // Fail fast.
+        } catch (IOException e) {
+          LOGGER.error("Unable to initialize mapping engine.", e);
+          throw new RuntimeException(e);
         }
         initialized.set(true);
       }
     }
   }
 
-  private static String loadMapping(String mappingPath) {
+  private static String loadMapping(String mappingPath, String rootFolder) {
     MappingConfigProvider provider = MappingConfigProviderFactory.createProvider(mappingPath);
     try {
-      return new String(provider.getMappingConfig(true /* force */), StandardCharsets.UTF_8);
+      return new String(provider.getMappingConfig(true /* force */,rootFolder), StandardCharsets.UTF_8);
     } catch (IOException | NullPointerException e) {
       throw new RuntimeException("Unable to load mapping configurations.", e);
     }

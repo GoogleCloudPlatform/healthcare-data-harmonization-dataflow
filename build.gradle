@@ -7,6 +7,7 @@ plugins {
     id 'com.github.jk1.dependency-license-report' version '1.13'
     // Package the pipeline along with its deps into a fat JAR.
     id 'com.github.johnrengelman.shadow' version '5.2.0'
+    id 'antlr'
 }
 
 group 'com.google.cloud.healthcare'
@@ -19,7 +20,16 @@ repositories {
     maven {
         url "https://packages.confluent.io/maven"
     }
+
+//    jcenter()
+    flatDir {
+        dirs 'libs'
+    }
 }
+
+//repositories {
+//
+//}
 
 sourceSets {
     main {
@@ -34,16 +44,17 @@ sourceSets {
 
 shadowJar {
     mainClassName = project.findProperty('mainClass') ?: 'com.google.cloud.healthcare.etl.runner.hl7v2tofhir.Hl7v2ToFhirStreamingRunner'
-    dependsOn('buildDeps')
+    zip64 true
+//    dependsOn(':runtime')
 }
 
-test {
+//test {
     // Ex: -PexcludeTests=com/google/cloud/healthcare/etl/runner/hl7v2tofhir/integ/*
-    if (project.hasProperty('excludeTests')) {
-        exclude project.property('excludeTests')
-    }
-    dependsOn('buildDeps')
-}
+ //   if (project.hasProperty('excludeTests')) {
+  //      exclude project.property('excludeTests')
+   // }
+//    dependsOn('buildDeps')
+//}
 
 // Reproduciable builds.
 tasks.withType(AbstractArchiveTask) {
@@ -60,7 +71,15 @@ configurations.all {
 def dataflowVersion = '2.47.0'
 def autoValueVersion = '1.7'
 
+
 dependencies {
+   // embeddedJars ':runtime'
+    implementation ':runtime'
+    runtimeOnly ':proto'
+    runtimeOnly ':transpiler'
+    // compileOnly ':runtime'
+    antlr group: 'org.antlr', name: 'antlr4', version: '4.7'
+    runtimeOnly group: 'org.antlr', name: 'antlr4-runtime', version: '4.7'
     implementation "org.apache.beam:beam-sdks-java-core:${dataflowVersion}"
     implementation "org.apache.beam:beam-runners-google-cloud-dataflow-java:${dataflowVersion}"
     implementation "org.apache.beam:beam-runners-direct-java:${dataflowVersion}"
@@ -107,8 +126,8 @@ clean {
     delete files('gradle/wrapper')
 }
 
-task buildDeps(type: Exec) {
-    inputs.dir('deps')
-    outputs.file('lib/libwhistler.so')
-    commandLine './build_deps.sh', '--work_dir', file('build/tmp/build_deps').absolutePath, '--output_dir', file('lib').absolutePath
-}
+//task buildDeps(type: Exec) {
+//    inputs.dir('deps')
+//    outputs.file('lib/libwhistler.so')
+//    commandLine './build_deps.sh', '--work_dir', file('build/tmp/build_deps').absolutePath, '--output_dir', file('lib').absolutePath
+//}

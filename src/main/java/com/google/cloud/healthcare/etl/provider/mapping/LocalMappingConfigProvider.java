@@ -16,7 +16,7 @@ public class LocalMappingConfigProvider implements MappingConfigProvider {
   }
 
   @Override
-  public byte[] getMappingConfig(boolean force) throws IOException {
+  public byte[] getMappingConfig(boolean force, String rootFolder) throws IOException {
     return Files.readAllBytes(Paths.get(path));
   }
 }

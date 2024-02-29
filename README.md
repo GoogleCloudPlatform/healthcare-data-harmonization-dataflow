@@ -1,6 +1,6 @@
-# HL7v2 to FHIR Pipeline
+# HL7v2 to FHIR Pipeline - Whistle-2
 
-This directory contains a reference Cloud Dataflow pipeline to convert HL7v2 messages to FHIR resources. Please note that additional configurations and hardening are required before processing PHI data with this pipeline.
+This directory contains a reference Cloud Dataflow pipeline to convert HL7v2 messages to FHIR resources using Whistle-2. Please note that additional configurations and hardening are required before processing PHI data with this pipeline.
 
 ## Prerequisites
 
@@ -57,8 +57,9 @@ java -jar build/libs/converter-0.1.0-all.jar --pubSubSubscription="projects/${PR
                                              --readErrorPath="gs://${ERROR_BUCKET?}/read/" \
                                              --writeErrorPath="gs://${ERROR_BUCKET?}/write/" \
                                              --mappingErrorPath="gs://${ERROR_BUCKET?}/mapping/" \
-                                             --mappingPath="gs://${MAPPING_BUCKET?}/mapping.textproto" \
+                                             --mappingPath="gs://${MAPPING_BUCKET?}/hl7v2_fhir.wstl" \
                                              --fhirStore="projects/${PROJECT?}/locations/${LOCATION?}/datasets/${DATASET?}/fhirStores/${FHIRSTORE?}" \
+                                             --rootFolder=${MAPPING_ROOT_FOLDER}
                                              --runner=DataflowRunner \
                                              --region=${REGION?} \
                                              --project=${PROJECT?}

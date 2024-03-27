@@ -19,10 +19,15 @@ import com.google.cloud.healthcare.etl.model.mapping.MappedFhirMessageWithSource
 import com.google.cloud.healthcare.etl.model.mapping.MappingOutput;
 import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProvider;
 import com.google.cloud.healthcare.etl.provider.mapping.MappingConfigProviderFactory;
-import com.google.cloud.healthcare.etl.util.library.TransformWrapper;
+import com.google.cloud.verticals.foundations.dataharmonization.imports.ImportPath;
+import com.google.cloud.verticals.foundations.dataharmonization.imports.impl.FileLoader;
+import com.google.cloud.verticals.foundations.dataharmonization.init.Engine;
+import com.google.cloud.verticals.foundations.dataharmonization.init.initializer.ExternalConfigExtractor;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
@@ -53,42 +58,99 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
 
   private final ValueProvider<String> mappingPath;
   private final ValueProvider<String> mappings;
+  private final ValueProvider<String> importRoot;
   private final boolean enablePerformanceMetrics;
 
-  protected TransformWrapper engine;
+  protected Engine engine;
 
   // The config parameter should be the string representation of the whole mapping config, including
   // harmonization and libraries.
   protected MappingFn(
       ValueProvider<String> mappingPath,
       ValueProvider<String> mappings,
-      Boolean enablePerformanceMetrics) {
+      Boolean enablePerformanceMetrics,
+      ValueProvider<String> importRoot) {
     this.mappingPath = mappingPath;
     this.mappings = mappings;
     this.enablePerformanceMetrics = enablePerformanceMetrics;
+    this.importRoot = importRoot;
   }
 
+  /**
+   * Creates a mapping function with the given mapping path and performance metrics flag.
+   *
+   * @param mappingPath the path to the main mapping config file.
+   * @param enablePerformanceMetrics whether to enable performance metrics.
+   * @param importRoot the root folder of the mapping configuration.
+   * @return a mapping function.
+   */
+  public static MappingFn of(
+      ValueProvider<String> mappingPath,
+      Boolean enablePerformanceMetrics,
+      ValueProvider<String> importRoot) {
+    return new MappingFn(
+        mappingPath, StaticValueProvider.of(""), enablePerformanceMetrics, importRoot);
+  }
+
+  /**
+   * Creates a mapping function with the given mapping path and performance metrics flag.
+   *
+   * @param mappingPath the path to the main mapping config file.
+   * @param enablePerformanceMetrics whether to enable performance metrics.
+   * @param importRoot the root folder of the mapping configuration.
+   * @return a mapping function.
+   */
+  public static MappingFn of(
+      String mappingPath, Boolean enablePerformanceMetrics, String importRoot) {
+    return of(
+        StaticValueProvider.of(mappingPath),
+        enablePerformanceMetrics,
+        StaticValueProvider.of(importRoot));
+  }
+
+  /**
+   * Creates a mapping function with the given mapping path and performance metrics flag.
+   *
+   * @param mappingPath the path to the mapping configuration.
+   * @param enablePerformanceMetrics whether to enable performance metrics.
+   * @return a mapping function.
+   */
   public static MappingFn of(ValueProvider<String> mappingPath, Boolean enablePerformanceMetrics) {
-    return new MappingFn(mappingPath, StaticValueProvider.of(""), enablePerformanceMetrics);
+    return new MappingFn(
+        mappingPath,
+        StaticValueProvider.of(""),
+        enablePerformanceMetrics,
+        StaticValueProvider.of(""));
   }
 
+  /**
+   * Creates a mapping function with the given mapping path and performance metrics flag.
+   *
+   * @param mappingPath the path to the mapping configuration.
+   * @param enablePerformanceMetrics whether to enable performance metrics.
+   * @return a mapping function.
+   */
   public static MappingFn of(String mappingPath, Boolean enablePerformanceMetrics) {
     return of(StaticValueProvider.of(mappingPath), enablePerformanceMetrics);
   }
 
+  /**
+   * Creates a mapping function with the given mapping path, mapping configuration, performance
+   * metrics flag and root folder.
+   *
+   * @param mappingPath the path to the main mapping config file.
+   * @param mappings the mapping configuration.
+   * @param enablePerformanceMetrics whether to enable performance metrics.
+   * @param importRoot the root folder of the mapping configuration.
+   * @return a mapping function.
+   */
   public static MappingFn of(
       ValueProvider<String> mappingPath,
       ValueProvider<String> mappings,
-      Boolean enablePerformanceMetrics) {
-    return new MappingFn(mappingPath, mappings, enablePerformanceMetrics);
-  }
-
-  public static MappingFn of(
-      String mappings, String mappingPath, Boolean enablePerformanceMetrics) {
-    return of(
-        StaticValueProvider.of(mappingPath),
-        StaticValueProvider.of(mappings),
-        enablePerformanceMetrics);
+      Boolean enablePerformanceMetrics,
+      ValueProvider<String> importRoot) {
+    return new MappingFn(
+        mappingPath, mappings, enablePerformanceMetrics, StaticValueProvider.of(importRoot));
   }
 
   @Setup
@@ -97,27 +159,43 @@ public class MappingFn<M extends Mappable> extends ErrorEnabledDoFn<M, MappingOu
     synchronized (initialized) {
       if (!initialized.get()) {
         LOGGER.info("Initializing the mapping configurations.");
-        engine = TransformWrapper.getInstance();
         try {
           // Mapping configurations are loaded from the `mappingPath` only if `mappings` is absent.
           String mappingsToUse = mappings.get();
+          String importRootToUse = importRoot.get();
           if (Strings.isNullOrEmpty(mappingsToUse)) {
-            mappingsToUse = loadMapping(mappingPath.get());
+            String mappingConfig = loadMapping(mappingPath.get(), importRootToUse);
+            mappingsToUse = mappingPath.get();
           }
-          engine.initializeWhistler(mappingsToUse);
+          String rootFile =
+              mappingsToUse.substring(
+                  mappingsToUse.indexOf(importRootToUse), mappingsToUse.length());
+          Path mappingPathLocal = FileSystems.getDefault().getPath("/tmp/" + rootFile);
+          ImportPath mappingImportPath =
+              ImportPath.of(FileLoader.NAME, mappingPathLocal, mappingPathLocal.getParent());
+
+          engine =
+              new Engine.Builder(ExternalConfigExtractor.of(mappingImportPath))
+                  .initialize()
+                  .build();
+
         } catch (RuntimeException e) {
           LOGGER.error("Unable to initialize mapping configurations.", e);
           throw e; // Fail fast.
+        } catch (IOException e) {
+          LOGGER.error("Unable to initialize mapping engine.", e);
+          throw new RuntimeException(e);
         }
         initialized.set(true);
       }
     }
   }
 
-  private static String loadMapping(String mappingPath) {
+  private static String loadMapping(String mappingPath, String importRoot) {
     MappingConfigProvider provider = MappingConfigProviderFactory.createProvider(mappingPath);
     try {
-      return new String(provider.getMappingConfig(true /* force */), StandardCharsets.UTF_8);
+      return new String(
+          provider.getMappingConfig(/* force= */ true, importRoot), StandardCharsets.UTF_8);
     } catch (IOException | NullPointerException e) {
       throw new RuntimeException("Unable to load mapping configurations.", e);
     }

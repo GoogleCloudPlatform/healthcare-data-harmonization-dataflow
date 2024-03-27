@@ -43,7 +43,7 @@ Build a fat JAR of the pipeline by running the following from the project direct
 ```bash
 # Generate wrapper classes.
 gradle wrapper --gradle-version 6.7.1
-./gradlew shadowJar
+./build_deps.sh && ./gradlew shadowJar
 ```
 
 A JAR file should be generated in `build/libs` folder.
@@ -57,8 +57,9 @@ java -jar build/libs/converter-0.1.0-all.jar --pubSubSubscription="projects/${PR
                                              --readErrorPath="gs://${ERROR_BUCKET?}/read/" \
                                              --writeErrorPath="gs://${ERROR_BUCKET?}/write/" \
                                              --mappingErrorPath="gs://${ERROR_BUCKET?}/mapping/" \
-                                             --mappingPath="gs://${MAPPING_BUCKET?}/mapping.textproto" \
+                                             --mappingPath="gs://${MAPPING_BUCKET?}/hl7v2_fhir.wstl" \
                                              --fhirStore="projects/${PROJECT?}/locations/${LOCATION?}/datasets/${DATASET?}/fhirStores/${FHIRSTORE?}" \
+                                             --importRoot="${MAPPING_ROOT_FOLDER}" \
                                              --runner=DataflowRunner \
                                              --region=${REGION?} \
                                              --project=${PROJECT?}
@@ -123,7 +124,7 @@ Build a fat JAR of the pipeline by running the following from the project direct
 ```bash
 # Generate wrapper classes.
 gradle wrapper
-./gradlew shadowJar -PmainClass=com.google.cloud.healthcare.etl.runner.dicomtofhir.DicomToFhirStreamingRunner
+./build_deps.sh && ./gradlew shadowJar -PmainClass=com.google.cloud.healthcare.etl.runner.dicomtofhir.DicomToFhirStreamingRunner
 ```
 
 A JAR file should be generated in `build/libs` folder.
@@ -206,7 +207,7 @@ Build a fat JAR of the pipeline by running the following from the project direct
 
 ```bash
 # Generate wrapper classes.
-gradle wrapper --gradle-version 6.7.1
+./build_deps.sh && gradle wrapper --gradle-version 6.7.1
 ./gradlew shadowJar
 ```
 

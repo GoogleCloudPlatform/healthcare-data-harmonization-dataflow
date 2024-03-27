@@ -65,8 +65,10 @@ import org.joda.time.Duration;
 public class Hl7v2ToFhirStreamingRunner {
 
   // TODO(b/155226578): add more sophisticated validations.
+
   /** Pipeline options. */
   public interface Options extends DataflowPipelineOptions {
+
     @Description(
         "The PubSub subscription to listen to, must be of the full format: "
             + "projects/project_id/subscriptions/subscription_id.")
@@ -76,8 +78,8 @@ public class Hl7v2ToFhirStreamingRunner {
     void setPubSubSubscription(String subSubscription);
 
     @Description(
-        "The path to the mapping configurations. The path will be treated as a GCS path if the"
-            + " path starts with the GCS scheme (\"gs\"), otherwise a local file. Please see: "
+        "The path to the mapping configurations. The path will be treated as a GCS path if the path"
+            + " starts with the GCS scheme (\"gs\"), otherwise a local file. Please see: "
             + "https://github.com/GoogleCloudPlatform/healthcare-data-harmonization/blob/baa4e0c7849413f7b44505a8410ee7f52745427a/mapping_configs/README.md"
             + " for more details on the mapping configuration structure.")
     @Required
@@ -116,6 +118,15 @@ public class Hl7v2ToFhirStreamingRunner {
             + "local file.")
     @Required
     String getMappingErrorPath();
+
+    @Description(
+        "The import root folder name that contains all the mapping configs. Can be of format:"
+            + " \"mappings\" or \"mappings/hl7v2_fhir\" where mappings is the root folder in GCS"
+            + " Bucket")
+    @Required
+    String getImportRoot();
+
+    void setImportRoot(String importRoot);
 
     void setMappingErrorPath(String mappingErrorPath);
 
@@ -170,7 +181,10 @@ public class Hl7v2ToFhirStreamingRunner {
                 .withNumShards(options.getErrorLogShardNum()));
 
     MappingFn<HclsApiHl7v2MappableMessage> mappingFn =
-        MappingFn.of(options.getMappingPath(), options.getEnablePerformanceMetrics());
+        MappingFn.of(
+            options.getMappingPath(),
+            options.getEnablePerformanceMetrics(),
+            options.getImportRoot());
     SerializableFunction<HL7v2Message, HclsApiHl7v2MappableMessage> toMappableMessageFn;
     if (options.getEnablePerformanceMetrics()) {
       toMappableMessageFn = HclsApiHl7v2MappableMessage::fromWithCreateTime;

@@ -7,7 +7,7 @@ This directory contains a reference Cloud Dataflow pipeline to convert HL7v2 mes
 * Have a Linux (Ubuntu & Debian preferred) machine ready.
   * Install [GCC compiler](https://gcc.gnu.org/install/).
   * Install [Go tools](https://golang.org/doc/install), versions >= [1.14](https://golang.org/dl/) are recommended.
-  * Install [Gradle](https://gradle.org/install/), version [6.3.0](https://gradle.org/next-steps/?version=6.3&format=bin) is recommended.
+  * Install [Gradle](https://gradle.org/install/), version [7.6](https://gradle.org/next-steps/?version=7.6&format=bin) is recommended.
   * Install [Protoc](https://github.com/protocolbuffers/protobuf/releases), version [3.14.0](https://github.com/protocolbuffers/protobuf/releases) is recommended.
 * Add your public key to [GitHub](https://help.github.com/en/github/authenticating-to-github/adding-a-new-ssh-key-to-your-github-account).
 * Install the latest [GCloud SDK](https://cloud.google.com/sdk/install).
@@ -42,7 +42,7 @@ Build a fat JAR of the pipeline by running the following from the project direct
 
 ```bash
 # Generate wrapper classes.
-gradle wrapper --gradle-version 6.7.1
+gradle wrapper --gradle-version 7.6
 ./build_deps.sh && ./gradlew shadowJar
 ```
 
@@ -90,7 +90,7 @@ This directory contains a reference Cloud Dataflow pipeline to convert a DICOM S
 * Have a Linux (Ubuntu & Debian preferred) machine ready.
   * Install [GCC compiler](https://gcc.gnu.org/install/).
   * Install [Go tools](https://golang.org/doc/install), versions >= [1.14](https://golang.org/dl/) are recommended.
-  * Install [Gradle](https://gradle.org/install/), version [6.3.0](https://gradle.org/next-steps/?version=6.3&format=bin) is recommended.
+  * Install [Gradle](https://gradle.org/install/), version [7.6](https://gradle.org/next-steps/?version=7.6&format=bin) is recommended.
   * Install [Protoc](https://github.com/protocolbuffers/protobuf/releases), version [3.14.0](https://github.com/protocolbuffers/protobuf/releases) is recommended.
 * Add your public key to [GitHub](https://help.github.com/en/github/authenticating-to-github/adding-a-new-ssh-key-to-your-github-account).
 * Install the latest [GCloud SDK](https://cloud.google.com/sdk/install).
@@ -172,7 +172,7 @@ This directory contains a reference Cloud Dataflow pipeline to convert custom/no
 * Have a Linux (Ubuntu & Debian preferred) machine ready.
   * Install [GCC compiler](https://gcc.gnu.org/install/).
   * Install [Go tools](https://golang.org/doc/install), versions >= [1.14](https://golang.org/dl/) are recommended.
-  * Install [Gradle](https://gradle.org/install/), version [6.3.0](https://gradle.org/next-steps/?version=6.3&format=bin) is recommended.
+  * Install [Gradle](https://gradle.org/install/), version [7.6](https://gradle.org/next-steps/?version=7.6&format=bin) is recommended.
   * Install [Protoc](https://github.com/protocolbuffers/protobuf/releases), version [3.14.0](https://github.com/protocolbuffers/protobuf/releases) is recommended.
 * Add your public key to [GitHub](https://help.github.com/en/github/authenticating-to-github/adding-a-new-ssh-key-to-your-github-account).
 * Install the latest [GCloud SDK](https://cloud.google.com/sdk/install).
@@ -207,7 +207,7 @@ Build a fat JAR of the pipeline by running the following from the project direct
 
 ```bash
 # Generate wrapper classes.
-./build_deps.sh && gradle wrapper --gradle-version 6.7.1
+./build_deps.sh && gradle wrapper --gradle-version 7.6
 ./gradlew shadowJar
 ```
 
